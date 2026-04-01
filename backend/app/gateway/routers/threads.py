@@ -251,11 +251,23 @@ async def create_thread(body: ThreadCreateRequest, request: Request) -> ThreadRe
     The thread record is written to the Store (for fast listing) and an
     empty checkpoint is written to the checkpointer (for state reads).
     Idempotent: returns the existing record when ``thread_id`` already exists.
+
+    If authenticated, the user's ID is injected into the thread metadata
+    for multi-tenant isolation.
     """
     store = get_store(request)
     checkpointer = get_checkpointer(request)
     thread_id = body.thread_id or str(uuid.uuid4())
     now = time.time()
+
+    # Get optional user for multi-tenant isolation
+    from app.gateway.deps import get_optional_user_from_request
+    user = await get_optional_user_from_request(request)
+
+    # Build thread metadata with user_id for isolation
+    thread_metadata = dict(body.metadata)
+    if user:
+        thread_metadata["user_id"] = str(user.id)
 
     # Idempotency: return existing record from Store when already present
     if store is not None:
@@ -279,7 +291,7 @@ async def create_thread(body: ThreadCreateRequest, request: Request) -> ThreadRe
                     "status": "idle",
                     "created_at": now,
                     "updated_at": now,
-                    "metadata": body.metadata,
+                    "metadata": thread_metadata,
                 },
             )
         except Exception:
@@ -296,7 +308,7 @@ async def create_thread(body: ThreadCreateRequest, request: Request) -> ThreadRe
             "source": "input",
             "writes": None,
             "parents": {},
-            **body.metadata,
+            **thread_metadata,
             "created_at": now,
         }
         await checkpointer.aput(config, empty_checkpoint(), ckpt_metadata, {})
@@ -304,13 +316,13 @@ async def create_thread(body: ThreadCreateRequest, request: Request) -> ThreadRe
         logger.exception("Failed to create checkpoint for thread %s", thread_id)
         raise HTTPException(status_code=500, detail="Failed to create thread")
 
-    logger.info("Thread created: %s", thread_id)
+    logger.info("Thread created: %s (user_id=%s)", thread_id, thread_metadata.get("user_id"))
     return ThreadResponse(
         thread_id=thread_id,
         status="idle",
         created_at=str(now),
         updated_at=str(now),
-        metadata=body.metadata,
+        metadata=thread_metadata,
     )
 
 
@@ -330,9 +342,17 @@ async def search_threads(body: ThreadSearchRequest, request: Request) -> list[Th
     newly found thread is immediately written to the Store so that the next
     search skips Phase 2 for that thread — the Store converges to a full
     index over time without a one-shot migration job.
+
+    If authenticated, only threads belonging to the current user are returned
+    (enforced by user_id metadata filter for multi-tenant isolation).
     """
     store = get_store(request)
     checkpointer = get_checkpointer(request)
+
+    # Get optional user for multi-tenant isolation
+    from app.gateway.deps import get_optional_user_from_request
+    user = await get_optional_user_from_request(request)
+    user_id = str(user.id) if user else None
 
     # -----------------------------------------------------------------------
     # Phase 1: Store
@@ -408,6 +428,10 @@ async def search_threads(body: ThreadSearchRequest, request: Request) -> list[Th
     # Phase 3: Filter → sort → paginate
     # -----------------------------------------------------------------------
     results = list(merged.values())
+
+    # Multi-tenant isolation: filter by user_id if authenticated
+    if user_id:
+        results = [r for r in results if r.metadata.get("user_id") == user_id]
 
     if body.metadata:
         results = [r for r in results if all(r.metadata.get(k) == v for k, v in body.metadata.items())]

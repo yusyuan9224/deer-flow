@@ -1,0 +1,140 @@
+"""PostgreSQL implementation of UserRepository."""
+from contextlib import contextmanager
+from datetime import datetime
+from typing import Any, Generator
+from uuid import UUID
+
+import psycopg2
+from psycopg2.extensions import connection as PgConnection
+from psycopg2.pool import ThreadedConnectionPool
+
+from app.core.auth.config import get_auth_config
+from app.core.auth.models import User
+from app.core.auth.repo import UserRepository
+
+
+_pool: ThreadedConnectionPool | None = None
+
+
+def _get_pool() -> ThreadedConnectionPool:
+    """Get or create the PostgreSQL connection pool."""
+    global _pool
+    if _pool is None:
+        config = get_auth_config()
+        # For now, get connection info from environment or config
+        # TODO: Add proper config for PostgreSQL connection
+        import os
+        database_url = os.getenv("DATABASE_URL", "postgresql://localhost:5432/deerflow")
+        _pool = ThreadedConnectionPool(minconn=1, maxconn=10, dsn=database_url)
+    return _pool
+
+
+def _init_users_table(conn: PgConnection) -> None:
+    """Initialize the users table if it doesn't exist."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id UUID PRIMARY KEY,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                password_hash VARCHAR(255),
+                system_role VARCHAR(50) NOT NULL DEFAULT 'user',
+                created_at TIMESTAMP NOT NULL,
+                oauth_provider VARCHAR(50),
+                oauth_id VARCHAR(255)
+            )
+        """
+        )
+        conn.commit()
+
+
+@contextmanager
+def _get_conn() -> Generator[PgConnection, None, None]:
+    """Context manager for PostgreSQL connection."""
+    pool = _get_pool()
+    conn = pool.getconn()
+    try:
+        _init_users_table(conn)
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        pool.putconn(conn)
+
+
+class PostgresUserRepository(UserRepository):
+    """PostgreSQL implementation of UserRepository."""
+
+    async def create_user(self, user: User) -> User:
+        """Create a new user in PostgreSQL."""
+        with _get_conn() as conn:
+            with conn.cursor() as cur:
+                try:
+                    cur.execute(
+                        """
+                        INSERT INTO users (id, email, password_hash, system_role, created_at, oauth_provider, oauth_id)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        (
+                            str(user.id),
+                            user.email,
+                            user.password_hash,
+                            user.system_role,
+                            datetime.utcnow(),
+                            user.oauth_provider,
+                            user.oauth_id,
+                        ),
+                    )
+                except psycopg2.IntegrityError as e:
+                    if "unique constraint" in str(e).lower() and "email" in str(e).lower():
+                        raise ValueError(f"Email already registered: {user.email}") from e
+                    raise
+        return user
+
+    async def get_user_by_id(self, user_id: str) -> User | None:
+        """Get user by ID from PostgreSQL."""
+        with _get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+                row = cur.fetchone()
+                if row is None:
+                    return None
+                return self._row_to_user(row)
+
+    async def get_user_by_email(self, email: str) -> User | None:
+        """Get user by email from PostgreSQL."""
+        with _get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT * FROM users WHERE email = %s", (email,))
+                row = cur.fetchone()
+                if row is None:
+                    return None
+                return self._row_to_user(row)
+
+    async def get_user_by_oauth(self, provider: str, oauth_id: str) -> User | None:
+        """Get user by OAuth provider and ID from PostgreSQL."""
+        with _get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT * FROM users WHERE oauth_provider = %s AND oauth_id = %s",
+                    (provider, oauth_id),
+                )
+                row = cur.fetchone()
+                if row is None:
+                    return None
+                return self._row_to_user(row)
+
+    @staticmethod
+    def _row_to_user(row: tuple[Any, ...]) -> User:
+        """Convert a database row to a User model."""
+        return User(
+            id=UUID(str(row[0])),
+            email=row[1],
+            password_hash=row[2],
+            system_role=row[3],
+            created_at=row[4] if isinstance(row[4], datetime) else datetime.fromisoformat(str(row[4])),
+            oauth_provider=row[5],
+            oauth_id=row[6],
+        )

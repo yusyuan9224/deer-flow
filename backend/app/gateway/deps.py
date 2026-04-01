@@ -68,3 +68,45 @@ def get_checkpointer(request: Request):
 def get_store(request: Request):
     """Return the global store (may be ``None`` if not configured)."""
     return getattr(request.app.state, "store", None)
+
+
+# ---------------------------------------------------------------------------
+# Auth helpers
+# ---------------------------------------------------------------------------
+
+
+async def get_current_user_from_request(request: Request):
+    """Get the current authenticated user from the request cookie.
+
+    Raises HTTPException 401 if not authenticated.
+    """
+    from app.core.auth import decode_token
+    from app.core.auth.local_provider import LocalAuthProvider
+    from app.core.auth.sqlite_user_repository import SQLiteUserRepository
+
+    access_token = request.cookies.get("access_token")
+    if not access_token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    payload = decode_token(access_token)
+    if payload is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    repo = SQLiteUserRepository()
+    provider = LocalAuthProvider(repository=repo)
+    user = await provider.get_user(payload.sub)
+    if user is None:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    return user
+
+
+async def get_optional_user_from_request(request: Request):
+    """Get optional authenticated user from request.
+
+    Returns None if not authenticated.
+    """
+    try:
+        return await get_current_user_from_request(request)
+    except HTTPException:
+        return None
