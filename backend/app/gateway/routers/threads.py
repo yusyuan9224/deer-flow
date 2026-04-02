@@ -21,6 +21,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.gateway.deps import get_checkpointer, get_store
+from app.gateway.authz import require_auth, require_permission
 from deerflow.config.paths import Paths, get_paths
 from deerflow.runtime import serialize_channel_values
 
@@ -215,17 +216,23 @@ def _derive_thread_status(checkpoint_tuple) -> str:
 
 
 @router.delete("/{thread_id}", response_model=ThreadDeleteResponse)
+@require_auth
+@require_permission("threads", "delete", owner_check=True)
 async def delete_thread_data(thread_id: str, request: Request) -> ThreadDeleteResponse:
     """Delete local persisted filesystem data for a thread.
 
     Cleans DeerFlow-managed thread directories, removes checkpoint data,
     and removes the thread record from the Store.
+
+    Multi-tenant isolation: only the thread owner can delete their thread.
     """
+    store = get_store(request)
+    checkpointer = get_checkpointer(request)
+
     # Clean local filesystem
     response = _delete_thread_data(thread_id)
 
     # Remove from Store (best-effort)
-    store = get_store(request)
     if store is not None:
         try:
             await store.adelete(THREADS_NS, thread_id)
@@ -233,7 +240,6 @@ async def delete_thread_data(thread_id: str, request: Request) -> ThreadDeleteRe
             logger.debug("Could not delete store record for thread %s (not critical)", thread_id)
 
     # Remove checkpoints (best-effort)
-    checkpointer = getattr(request.app.state, "checkpointer", None)
     if checkpointer is not None:
         try:
             if hasattr(checkpointer, "adelete_thread"):
@@ -444,13 +450,20 @@ async def search_threads(body: ThreadSearchRequest, request: Request) -> list[Th
 
 
 @router.patch("/{thread_id}", response_model=ThreadResponse)
-async def patch_thread(thread_id: str, body: ThreadPatchRequest, request: Request) -> ThreadResponse:
-    """Merge metadata into a thread record."""
+@require_auth
+@require_permission("threads", "write", owner_check=True, inject_record=True)
+async def patch_thread(thread_id: str, request: Request, body: ThreadPatchRequest, thread_record: dict = None) -> ThreadResponse:
+    """Merge metadata into a thread record.
+
+    Multi-tenant isolation: only the thread owner can patch their thread.
+    """
     store = get_store(request)
     if store is None:
         raise HTTPException(status_code=503, detail="Store not available")
 
-    record = await _store_get(store, thread_id)
+    record = thread_record
+    if record is None:
+        record = await _store_get(store, thread_id)
     if record is None:
         raise HTTPException(status_code=404, detail=f"Thread {thread_id} not found")
 
@@ -475,12 +488,17 @@ async def patch_thread(thread_id: str, body: ThreadPatchRequest, request: Reques
 
 
 @router.get("/{thread_id}", response_model=ThreadResponse)
+@require_auth
+@require_permission("threads", "read", owner_check=True)
 async def get_thread(thread_id: str, request: Request) -> ThreadResponse:
     """Get thread info.
 
     Reads metadata from the Store and derives the accurate execution
     status from the checkpointer.  Falls back to the checkpointer alone
     for threads that pre-date Store adoption (backward compat).
+
+    Multi-tenant isolation: returns 404 if the thread does not belong to
+    the authenticated user.
     """
     store = get_store(request)
     checkpointer = get_checkpointer(request)
@@ -527,11 +545,15 @@ async def get_thread(thread_id: str, request: Request) -> ThreadResponse:
 
 
 @router.get("/{thread_id}/state", response_model=ThreadStateResponse)
+@require_auth
+@require_permission("threads", "read", owner_check=True)
 async def get_thread_state(thread_id: str, request: Request) -> ThreadStateResponse:
     """Get the latest state snapshot for a thread.
 
     Channel values are serialized to ensure LangChain message objects
     are converted to JSON-safe dicts.
+
+    Multi-tenant isolation: returns 404 if thread does not belong to user.
     """
     checkpointer = get_checkpointer(request)
 
@@ -576,12 +598,16 @@ async def get_thread_state(thread_id: str, request: Request) -> ThreadStateRespo
 
 
 @router.post("/{thread_id}/state", response_model=ThreadStateResponse)
+@require_auth
+@require_permission("threads", "write", owner_check=True)
 async def update_thread_state(thread_id: str, body: ThreadStateUpdateRequest, request: Request) -> ThreadStateResponse:
     """Update thread state (e.g. for human-in-the-loop resume or title rename).
 
     Writes a new checkpoint that merges *body.values* into the latest
     channel values, then syncs any updated ``title`` field back to the Store
     so that ``/threads/search`` reflects the change immediately.
+
+    Multi-tenant isolation: only the thread owner can update their thread.
     """
     checkpointer = get_checkpointer(request)
     store = get_store(request)
@@ -659,8 +685,13 @@ async def update_thread_state(thread_id: str, body: ThreadStateUpdateRequest, re
 
 
 @router.post("/{thread_id}/history", response_model=list[HistoryEntry])
+@require_auth
+@require_permission("threads", "read", owner_check=True)
 async def get_thread_history(thread_id: str, body: ThreadHistoryRequest, request: Request) -> list[HistoryEntry]:
-    """Get checkpoint history for a thread."""
+    """Get checkpoint history for a thread.
+
+    Multi-tenant isolation: returns 404 if thread does not belong to user.
+    """
     checkpointer = get_checkpointer(request)
 
     config: dict[str, Any] = {"configurable": {"thread_id": thread_id}}
