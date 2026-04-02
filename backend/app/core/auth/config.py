@@ -2,7 +2,11 @@
 import logging
 import os
 
+from dotenv import load_dotenv
 from pydantic import BaseModel, Field
+
+# Load .env file from backend directory
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
