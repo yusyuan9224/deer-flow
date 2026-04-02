@@ -1,4 +1,5 @@
 """PostgreSQL implementation of UserRepository."""
+import asyncio
 from contextlib import contextmanager
 from datetime import datetime
 from typing import Any, Generator
@@ -69,6 +70,10 @@ class PostgresUserRepository(UserRepository):
 
     async def create_user(self, user: User) -> User:
         """Create a new user in PostgreSQL."""
+        return await asyncio.to_thread(self._create_user_sync, user)
+
+    def _create_user_sync(self, user: User) -> User:
+        """Synchronous user creation (runs in thread pool)."""
         with _get_conn() as conn:
             with conn.cursor() as cur:
                 try:
@@ -82,7 +87,7 @@ class PostgresUserRepository(UserRepository):
                             user.email,
                             user.password_hash,
                             user.system_role,
-                            datetime.utcnow(),
+                            datetime.now(timezone.utc),
                             user.oauth_provider,
                             user.oauth_id,
                         ),
@@ -95,6 +100,10 @@ class PostgresUserRepository(UserRepository):
 
     async def get_user_by_id(self, user_id: str) -> User | None:
         """Get user by ID from PostgreSQL."""
+        return await asyncio.to_thread(self._get_user_by_id_sync, user_id)
+
+    def _get_user_by_id_sync(self, user_id: str) -> User | None:
+        """Synchronous get by ID (runs in thread pool)."""
         with _get_conn() as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT * FROM users WHERE id = %s", (user_id,))
@@ -105,6 +114,10 @@ class PostgresUserRepository(UserRepository):
 
     async def get_user_by_email(self, email: str) -> User | None:
         """Get user by email from PostgreSQL."""
+        return await asyncio.to_thread(self._get_user_by_email_sync, email)
+
+    def _get_user_by_email_sync(self, email: str) -> User | None:
+        """Synchronous get by email (runs in thread pool)."""
         with _get_conn() as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT * FROM users WHERE email = %s", (email,))
@@ -115,6 +128,10 @@ class PostgresUserRepository(UserRepository):
 
     async def get_user_by_oauth(self, provider: str, oauth_id: str) -> User | None:
         """Get user by OAuth provider and ID from PostgreSQL."""
+        return await asyncio.to_thread(self._get_user_by_oauth_sync, provider, oauth_id)
+
+    def _get_user_by_oauth_sync(self, provider: str, oauth_id: str) -> User | None:
+        """Synchronous get by OAuth (runs in thread pool)."""
         with _get_conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(

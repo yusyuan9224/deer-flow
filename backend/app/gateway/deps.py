@@ -54,6 +54,22 @@ def get_store(request: Request):
 # Auth helpers (used by authz.py)
 # ---------------------------------------------------------------------------
 
+# Cached singletons to avoid repeated instantiation per request
+_cached_local_provider: "LocalAuthProvider | None" = None
+_cached_repo: "SQLiteUserRepository | None" = None
+
+
+def _get_local_provider() -> "LocalAuthProvider":
+    """Get or create the cached LocalAuthProvider singleton."""
+    global _cached_local_provider, _cached_repo
+    if _cached_repo is None:
+        from app.core.auth.sqlite_user_repository import SQLiteUserRepository
+        _cached_repo = SQLiteUserRepository()
+    if _cached_local_provider is None:
+        from app.core.auth.local_provider import LocalAuthProvider
+        _cached_local_provider = LocalAuthProvider(repository=_cached_repo)
+    return _cached_local_provider
+
 
 async def get_current_user_from_request(request: Request):
     """Get the current authenticated user from the request cookie.
@@ -61,8 +77,6 @@ async def get_current_user_from_request(request: Request):
     Raises HTTPException 401 if not authenticated.
     """
     from app.core.auth import decode_token
-    from app.core.auth.local_provider import LocalAuthProvider
-    from app.core.auth.sqlite_user_repository import SQLiteUserRepository
 
     access_token = request.cookies.get("access_token")
     if not access_token:
@@ -72,8 +86,7 @@ async def get_current_user_from_request(request: Request):
     if payload is None:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
-    repo = SQLiteUserRepository()
-    provider = LocalAuthProvider(repository=repo)
+    provider = _get_local_provider()
     user = await provider.get_user(payload.sub)
     if user is None:
         raise HTTPException(status_code=401, detail="User not found")

@@ -119,8 +119,6 @@ async def _authenticate(request: Request) -> AuthContext:
     Returns AuthContext with user=None for anonymous requests.
     """
     from app.core.auth import decode_token
-    from app.core.auth.local_provider import LocalAuthProvider
-    from app.core.auth.sqlite_user_repository import SQLiteUserRepository
 
     access_token = request.cookies.get("access_token")
     if not access_token:
@@ -130,8 +128,9 @@ async def _authenticate(request: Request) -> AuthContext:
     if payload is None:
         return AuthContext(user=None, permissions=[])
 
-    repo = SQLiteUserRepository()
-    provider = LocalAuthProvider(repository=repo)
+    # Use cached provider singleton to avoid repeated instantiation
+    from app.gateway.deps import _get_local_provider
+    provider = _get_local_provider()
     user = await provider.get_user(payload.sub)
     if user is None:
         return AuthContext(user=None, permissions=[])

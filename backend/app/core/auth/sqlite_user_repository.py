@@ -1,4 +1,5 @@
 """SQLite implementation of UserRepository."""
+import asyncio
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime
@@ -63,6 +64,10 @@ class SQLiteUserRepository(UserRepository):
 
     async def create_user(self, user: User) -> User:
         """Create a new user in SQLite."""
+        return await asyncio.to_thread(self._create_user_sync, user)
+
+    def _create_user_sync(self, user: User) -> User:
+        """Synchronous user creation (runs in thread pool)."""
         with _get_users_conn() as conn:
             try:
                 conn.execute(
@@ -75,7 +80,7 @@ class SQLiteUserRepository(UserRepository):
                         user.email,
                         user.password_hash,
                         user.system_role,
-                        datetime.utcnow().timestamp(),
+                        datetime.now(timezone.utc).timestamp(),
                         user.oauth_provider,
                         user.oauth_id,
                     ),
@@ -89,6 +94,10 @@ class SQLiteUserRepository(UserRepository):
 
     async def get_user_by_id(self, user_id: str) -> User | None:
         """Get user by ID from SQLite."""
+        return await asyncio.to_thread(self._get_user_by_id_sync, user_id)
+
+    def _get_user_by_id_sync(self, user_id: str) -> User | None:
+        """Synchronous get by ID (runs in thread pool)."""
         with _get_users_conn() as conn:
             cursor = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,))
             row = cursor.fetchone()
@@ -98,6 +107,10 @@ class SQLiteUserRepository(UserRepository):
 
     async def get_user_by_email(self, email: str) -> User | None:
         """Get user by email from SQLite."""
+        return await asyncio.to_thread(self._get_user_by_email_sync, email)
+
+    def _get_user_by_email_sync(self, email: str) -> User | None:
+        """Synchronous get by email (runs in thread pool)."""
         with _get_users_conn() as conn:
             cursor = conn.execute("SELECT * FROM users WHERE email = ?", (email,))
             row = cursor.fetchone()
@@ -107,6 +120,10 @@ class SQLiteUserRepository(UserRepository):
 
     async def get_user_by_oauth(self, provider: str, oauth_id: str) -> User | None:
         """Get user by OAuth provider and ID from SQLite."""
+        return await asyncio.to_thread(self._get_user_by_oauth_sync, provider, oauth_id)
+
+    def _get_user_by_oauth_sync(self, provider: str, oauth_id: str) -> User | None:
+        """Synchronous get by OAuth (runs in thread pool)."""
         with _get_users_conn() as conn:
             cursor = conn.execute(
                 "SELECT * FROM users WHERE oauth_provider = ? AND oauth_id = ?",

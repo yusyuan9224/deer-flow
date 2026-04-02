@@ -129,7 +129,7 @@ async def login_local(
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(body: RegisterRequest):
     """Register a new local user account."""
-    # Check if user already exists
+    # Fast path: check if email exists first (avoids expensive hash computation on conflict)
     existing = await _local_provider.get_user_by_email(body.email)
     if existing is not None:
         raise HTTPException(
@@ -137,7 +137,15 @@ async def register(body: RegisterRequest):
             detail="Email already registered",
         )
 
-    user = await _local_provider.create_user(email=body.email, password=body.password)
+    # Insert is atomic at the DB layer; IntegrityError handles the race
+    try:
+        user = await _local_provider.create_user(email=body.email, password=body.password)
+    except ValueError as e:
+        # Raised by repo when UNIQUE constraint is violated (race between pre-check and insert)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
 
     return UserResponse(id=str(user.id), email=user.email, system_role=user.system_role)
 
