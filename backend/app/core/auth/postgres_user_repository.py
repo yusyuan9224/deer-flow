@@ -17,8 +17,7 @@ from app.core.auth.repo import UserRepository
 _pool: ThreadedConnectionPool | None = None
 
 
-def _get_pool() -> ThreadedConnectionPool:
-    """Get or create the PostgreSQL connection pool."""
+"""Get or create the PostgreSQL connection pool."""
     global _pool
     if _pool is None:
         # Trigger config load (may set up defaults)
@@ -26,9 +25,81 @@ def _get_pool() -> ThreadedConnectionPool:
         # For now, get connection info from environment or config
         # TODO: Add proper config for PostgreSQL connection
         import os
+
         database_url = os.getenv("DATABASE_URL", "postgresql://localhost:5432/deerflow")
         _pool = ThreadedConnectionPool(minconn=1, maxconn=10, dsn=database_url)
     return _pool
+
+
+def _init_users_table(conn: PgConnection) -> None:
+    """Initialize the users table if it doesn't exist."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id UUID PRIMARY KEY,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                password_hash VARCHAR(255),
+                system_role VARCHAR(50) NOT NULL DEFAULT 'user',
+                created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+                oauth_provider VARCHAR(50),
+                oauth_id VARCHAR(255)
+            )
+        """
+        )
+        # Add unique constraint for OAuth identity to prevent duplicate social logins
+        cur.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_users_oauth_identity
+            ON users(oauth_provider, oauth_id)
+            WHERE oauth_provider IS NOT NULL AND oauth_id IS NOT NULL
+        """
+        )
+        conn.commit()
+
+
+@contextmanager
+def _get_conn() -> Generator[PgConnection, None, None]:
+    """Context manager for PostgreSQL connection."""
+    pool = _get_pool()
+    conn = pool.getconn()
+    try:
+        _init_users_table(conn)
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        pool.putconn(conn)
+
+
+# Register shutdown hook
+atexit.register(_close_pool)
+
+
+def _close_pool() -> None:
+    """Close the connection pool on app shutdown."""
+    global _pool
+    if _pool is not None:
+        try:
+            _pool.closeall()
+            logger.info("PostgreSQL connection pool closed")
+        except Exception as e:
+            logger.warning("Error closing PostgreSQL connection pool: %s", e)
+        finally:
+            _pool = None
+
+
+def close_pool() -> None:
+    """Close the PostgreSQL connection pool.
+
+    Should be called during application shutdown to release all connections.
+    """
+    global _pool
+    if _pool is not None:
+        _pool.closeall()
+        _pool = None
 
 
 def _init_users_table(conn: PgConnection) -> None:
@@ -45,6 +116,14 @@ def _init_users_table(conn: PgConnection) -> None:
                 oauth_provider VARCHAR(50),
                 oauth_id VARCHAR(255)
             )
+        """
+        )
+        # Add unique constraint for OAuth identity to prevent duplicate social logins
+        cur.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_users_oauth_identity
+            ON users(oauth_provider, oauth_id)
+            WHERE oauth_provider IS NOT NULL AND oauth_id IS NOT NULL
         """
         )
         conn.commit()

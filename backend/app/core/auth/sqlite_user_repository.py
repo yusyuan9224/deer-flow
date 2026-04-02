@@ -45,6 +45,14 @@ def _init_users_table(conn: sqlite3.Connection) -> None:
         )
     """
     )
+    # Add unique constraint for OAuth identity to prevent duplicate social logins
+    conn.execute(
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_users_oauth_identity
+        ON users(oauth_provider, oauth_id)
+        WHERE oauth_provider IS NOT NULL AND oauth_id IS NOT NULL
+    """
+    )
     conn.commit()
 
 
@@ -142,7 +150,7 @@ class SQLiteUserRepository(UserRepository):
             email=row["email"],
             password_hash=row["password_hash"],
             system_role=row["system_role"],
-            created_at=datetime.utcfromtimestamp(row["created_at"]),
+            created_at=datetime.fromtimestamp(row["created_at"], tz=UTC),
             oauth_provider=row.get("oauth_provider"),
             oauth_id=row.get("oauth_id"),
         )

@@ -1,7 +1,7 @@
 """Local email/password authentication provider."""
 
 from app.core.auth.models import User
-from app.core.auth.password import hash_password, verify_password
+from app.core.auth.password import hash_password_async, verify_password_async
 from app.core.auth.providers import AuthProvider
 from app.core.auth.repo import UserRepository
 
@@ -40,7 +40,7 @@ class LocalAuthProvider(AuthProvider):
             # OAuth user without local password
             return None
 
-        if not verify_password(password, user.password_hash):
+        if not await verify_password_async(password, user.password_hash):
             return None
 
         return user
@@ -59,9 +59,10 @@ class LocalAuthProvider(AuthProvider):
         Returns:
             Created User instance
         """
+        password_hash = await hash_password_async(password) if password else None
         user = User(
             email=email,
-            password_hash=hash_password(password) if password else None,
+            password_hash=password_hash,
         )
         return await self._repo.create_user(user)
 

@@ -1,6 +1,6 @@
 """Authentication configuration for DeerFlow."""
 import logging
-import warnings
+import os
 
 from pydantic import BaseModel, Field
 
@@ -33,18 +33,15 @@ def get_auth_config() -> AuthConfig:
     """Get the global AuthConfig instance."""
     global _auth_config
     if _auth_config is None:
-        _auth_config = AuthConfig()
-        if _auth_config.jwt_secret == _WEAK_SECRET_DEFAULT:
-            warnings.warn(
-                "JWT secret is using the default value 'CHANGE_ME_IN_PRODUCTION'. "
-                "Set AUTH_JWT_SECRET environment variable or configure jwt_secret explicitly. "
-                "Falling back to this default is insecure in production.",
-                UserWarning,
-                stacklevel=2,
+        # Read JWT secret from environment variable
+        jwt_secret = os.environ.get("AUTH_JWT_SECRET")
+        if not jwt_secret:
+            # Fail fast - insecure default must not be used
+            raise ValueError(
+                "AUTH_JWT_SECRET environment variable must be set. "
+                "Generate a secure secret with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
             )
-            logger.warning(
-                "Using default JWT secret. Set AUTH_JWT_SECRET for production deployments."
-            )
+        _auth_config = AuthConfig(jwt_secret=jwt_secret)
     return _auth_config
 
 
