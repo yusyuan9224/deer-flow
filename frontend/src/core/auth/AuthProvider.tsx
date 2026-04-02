@@ -1,0 +1,172 @@
+"use client";
+
+import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
+import { useRouter, usePathname } from "next/navigation";
+
+/**
+ * User information returned by FastAPI /api/auth/me
+ * Matches RFC-001 specification - only non-sensitive display data
+ */
+export interface User {
+  id: string;
+  email: string;
+  system_role: string;
+}
+
+/**
+ * Authentication context provided to consuming components
+ */
+interface AuthContextType {
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+interface AuthProviderProps {
+  children: ReactNode;
+  initialUser: User | null;
+}
+
+/**
+ * AuthProvider - Unified authentication context for the application
+ * 
+ * Per RFC-001:
+ * - Only holds display information (user), never JWT or tokens
+ * - initialUser comes from server-side guard, avoiding client flicker
+ * - Provides logout and refresh capabilities
+ */
+export function AuthProvider({ children, initialUser }: AuthProviderProps) {
+  const [user, setUser] = useState<User | null>(initialUser);
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const isAuthenticated = user !== null;
+
+  /**
+   * Fetch current user from FastAPI
+   * Used when initialUser might be stale (e.g., after tab was inactive)
+   */
+  const refreshUser = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch("/api/auth/me", {
+        credentials: "include",
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setUser(data);
+      } else if (res.status === 401) {
+        // Session expired or invalid
+        setUser(null);
+        // Redirect to login if on a protected route
+        if (pathname?.startsWith("/workspace")) {
+          router.push(`/login?next=${encodeURIComponent(pathname)}`);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to refresh user:", err);
+      setUser(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [pathname, router]);
+
+  /**
+   * Logout - call FastAPI logout endpoint and clear local state
+   * Per RFC-001: Immediately clear local state, don't wait for server confirmation
+   */
+  const logout = useCallback(async () => {
+    // Immediately clear local state to prevent UI flicker
+    setUser(null);
+
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch (err) {
+      console.error("Logout request failed:", err);
+      // Still redirect even if logout request fails
+    }
+
+    // Redirect to home page
+    router.push("/");
+  }, [router]);
+
+  /**
+   * Handle visibility change - refresh user when tab becomes visible again
+   * This handles the case where session might have expired while tab was hidden
+   */
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible" && user !== null) {
+        // Silently check if session is still valid
+        fetch("/api/auth/me", { credentials: "include" })
+          .then((res) => {
+            if (res.status === 401) {
+              // Session expired while tab was hidden
+              setUser(null);
+              if (pathname?.startsWith("/workspace")) {
+                router.push(`/login?next=${encodeURIComponent(pathname)}`);
+              }
+            }
+          })
+          .catch(() => {
+            // Network error, don't disrupt the user
+          });
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [user, pathname, router]);
+
+  const value: AuthContextType = {
+    user,
+    isAuthenticated,
+    isLoading,
+    logout,
+    refreshUser,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+/**
+ * Hook to access authentication context
+ * Throws if used outside AuthProvider - this is intentional for proper usage
+ */
+export function useAuth(): AuthContextType {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
+}
+
+/**
+ * Hook to require authentication - redirects to login if not authenticated
+ * Useful for client-side checks in addition to server-side guards
+ */
+export function useRequireAuth(): AuthContextType {
+  const auth = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    // Only redirect if we're sure user is not authenticated (not just loading)
+    if (!auth.isLoading && !auth.isAuthenticated) {
+      router.push(`/login?next=${encodeURIComponent(pathname || "/workspace")}`);
+    }
+  }, [auth.isAuthenticated, auth.isLoading, router, pathname]);
+
+  return auth;
+}

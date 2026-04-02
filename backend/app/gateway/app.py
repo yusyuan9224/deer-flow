@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.gateway.config import get_gateway_config
+from app.gateway.csrf_middleware import CSRFMiddleware
 from app.gateway.deps import langgraph_runtime
 from app.gateway.routers import (
     agents,
@@ -22,6 +23,7 @@ from app.gateway.routers import (
     threads,
     uploads,
 )
+
 from deerflow.config.app_config import get_app_config
 
 # Configure logging
