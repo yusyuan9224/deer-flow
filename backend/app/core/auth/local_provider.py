@@ -1,5 +1,4 @@
 """Local email/password authentication provider."""
-from uuid import UUID
 
 from app.core.auth.models import User
 from app.core.auth.password import hash_password, verify_password

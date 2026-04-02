@@ -1,6 +1,5 @@
 """User repository interface for abstracting database operations."""
 from abc import ABC, abstractmethod
-from uuid import UUID
 
 from app.core.auth.models import User
 

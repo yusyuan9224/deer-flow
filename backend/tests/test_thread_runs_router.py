@@ -4,16 +4,15 @@ These tests verify that auth decorators properly enforce permission checks
 on run endpoints. They follow the same pattern as test_threads_router.py.
 """
 
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import MagicMock, patch
+from uuid import uuid4
 
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.gateway.routers.thread_runs import router
-from app.gateway.authz import AuthContext
 from app.core.auth.models import User
-from uuid import uuid4
+from app.gateway.authz import AuthContext
+from app.gateway.routers.thread_runs import router
 
 
 def test_create_run_requires_auth():

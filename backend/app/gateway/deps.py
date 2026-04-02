@@ -10,11 +10,15 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator
 from contextlib import AsyncExitStack, asynccontextmanager
+from typing import TYPE_CHECKING
 
 from fastapi import FastAPI, HTTPException, Request
 
 from deerflow.runtime import RunManager, StreamBridge
 
+if TYPE_CHECKING:
+    from app.core.auth.local_provider import LocalAuthProvider
+    from app.core.auth.sqlite_user_repository import SQLiteUserRepository
 
 # ---------------------------------------------------------------------------
 # Getters – called by routers per-request
@@ -55,11 +59,11 @@ def get_store(request: Request):
 # ---------------------------------------------------------------------------
 
 # Cached singletons to avoid repeated instantiation per request
-_cached_local_provider: "LocalAuthProvider | None" = None
-_cached_repo: "SQLiteUserRepository | None" = None
+_cached_local_provider: LocalAuthProvider | None = None
+_cached_repo: SQLiteUserRepository | None = None
 
 
-def _get_local_provider() -> "LocalAuthProvider":
+def _get_local_provider() -> LocalAuthProvider:
     """Get or create the cached LocalAuthProvider singleton."""
     global _cached_local_provider, _cached_repo
     if _cached_repo is None:

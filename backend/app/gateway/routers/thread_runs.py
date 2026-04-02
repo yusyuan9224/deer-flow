@@ -19,8 +19,8 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
-from app.gateway.deps import get_checkpointer, get_run_manager, get_stream_bridge
 from app.gateway.authz import require_auth, require_permission
+from app.gateway.deps import get_checkpointer, get_run_manager, get_stream_bridge
 from app.gateway.services import sse_consumer, start_run
 from deerflow.runtime import RunRecord, serialize_channel_values
 

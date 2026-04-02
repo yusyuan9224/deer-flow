@@ -2,7 +2,7 @@
 import asyncio
 import sqlite3
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -80,7 +80,7 @@ class SQLiteUserRepository(UserRepository):
                         user.email,
                         user.password_hash,
                         user.system_role,
-                        datetime.now(timezone.utc).timestamp(),
+                        datetime.now(UTC).timestamp(),
                         user.oauth_provider,
                         user.oauth_id,
                     ),

@@ -9,16 +9,14 @@ from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 from app.core.auth import create_access_token, decode_token, hash_password, verify_password
-from app.core.auth.config import AuthConfig, get_auth_config, set_auth_config
 from app.core.auth.models import User
 from app.gateway.authz import (
     AuthContext,
     Permissions,
+    get_auth_context,
     require_auth,
     require_permission,
-    get_auth_context,
 )
-
 
 # ── Password Hashing ────────────────────────────────────────────────────────
 
@@ -236,8 +234,9 @@ def test_require_permission_denies_wrong_permission():
 
 def test_weak_secret_triggers_warning(monkeypatch):
     """Using the default JWT secret triggers a warning at config load time."""
-    import app.core.auth.config as config_module
     import warnings
+
+    import app.core.auth.config as config_module
 
     # Reset global config so warning fires on next get_auth_config()
     config_module._auth_config = None

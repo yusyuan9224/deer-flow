@@ -1,8 +1,9 @@
 """PostgreSQL implementation of UserRepository."""
 import asyncio
+from collections.abc import Generator
 from contextlib import contextmanager
-from datetime import datetime
-from typing import Any, Generator
+from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 import psycopg2
@@ -13,7 +14,6 @@ from app.core.auth.config import get_auth_config
 from app.core.auth.models import User
 from app.core.auth.repo import UserRepository
 
-
 _pool: ThreadedConnectionPool | None = None
 
 
@@ -21,7 +21,8 @@ def _get_pool() -> ThreadedConnectionPool:
     """Get or create the PostgreSQL connection pool."""
     global _pool
     if _pool is None:
-        config = get_auth_config()
+        # Trigger config load (may set up defaults)
+        get_auth_config()
         # For now, get connection info from environment or config
         # TODO: Add proper config for PostgreSQL connection
         import os
@@ -87,7 +88,7 @@ class PostgresUserRepository(UserRepository):
                             user.email,
                             user.password_hash,
                             user.system_role,
-                            datetime.now(timezone.utc),
+                            datetime.now(UTC),
                             user.oauth_provider,
                             user.oauth_id,
                         ),

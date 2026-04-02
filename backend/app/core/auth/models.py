@@ -1,5 +1,5 @@
 """User Pydantic models for authentication."""
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Literal
 from uuid import UUID, uuid4
 
@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 def _utc_now() -> datetime:
     """Return current UTC time (timezone-aware)."""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class User(BaseModel):

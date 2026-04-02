@@ -4,11 +4,9 @@ from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr
 
 from app.core.auth import (
-    TokenPayload,
     UserResponse,
     create_access_token,
     decode_token,
-    hash_password,
 )
 from app.core.auth.local_provider import LocalAuthProvider
 from app.core.auth.models import User

@@ -50,7 +50,7 @@ def test_delete_thread_data_rejects_invalid_thread_id(tmp_path):
 
 def test_delete_thread_route_cleans_thread_directory(tmp_path):
     """DELETE /{thread_id} requires auth + permission — mock auth and store."""
-    from unittest.mock import MagicMock, AsyncMock
+    from unittest.mock import AsyncMock, MagicMock
 
     from app.gateway.authz import AuthContext
 
@@ -103,7 +103,7 @@ def test_delete_thread_route_rejects_invalid_thread_id(tmp_path):
 
 def test_delete_thread_route_returns_422_for_route_safe_invalid_id(tmp_path):
     """DELETE /{thread_id} with invalid id — auth is checked before path validation."""
-    from unittest.mock import MagicMock, AsyncMock
+    from unittest.mock import AsyncMock, MagicMock
 
     from app.gateway.authz import AuthContext
 

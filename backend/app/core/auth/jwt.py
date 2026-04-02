@@ -1,5 +1,5 @@
 """JWT token creation and verification."""
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import jwt
 from pydantic import BaseModel
@@ -28,7 +28,7 @@ def create_access_token(user_id: str, expires_delta: timedelta | None = None) ->
     config = get_auth_config()
     expiry = expires_delta or timedelta(days=config.token_expiry_days)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     payload = {"sub": user_id, "exp": now + expiry, "iat": now}
     return jwt.encode(payload, config.jwt_secret, algorithm="HS256")
 

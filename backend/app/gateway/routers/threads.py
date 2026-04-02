@@ -20,8 +20,8 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from app.gateway.deps import get_checkpointer, get_store
 from app.gateway.authz import require_auth, require_permission
+from app.gateway.deps import get_checkpointer, get_store
 from deerflow.config.paths import Paths, get_paths
 from deerflow.runtime import serialize_channel_values
 

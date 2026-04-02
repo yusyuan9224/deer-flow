@@ -30,7 +30,8 @@ Inspired by LangGraph Auth system: https://github.com/langchain-ai/langgraph/blo
 from __future__ import annotations
 
 import functools
-from typing import TYPE_CHECKING, Any, Callable, Literal, ParamSpec, TypeVar
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, ParamSpec, TypeVar
 
 from fastapi import HTTPException, Request
 
@@ -254,11 +255,11 @@ def require_permission(
                 thread_id = kwargs.get("thread_id")
                 if thread_id is None:
                     raise ValueError(
-                        f"require_permission with owner_check=True requires 'thread_id' parameter"
+                        "require_permission with owner_check=True requires 'thread_id' parameter"
                     )
 
                 # Get thread and verify ownership
-                from app.gateway.routers.threads import get_store, _store_get, THREADS_NS
+                from app.gateway.routers.threads import _store_get, get_store
 
                 store = get_store(request)
                 if store is not None:
