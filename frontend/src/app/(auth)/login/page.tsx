@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter, from "next/navigation";
-import { useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/core/auth/AuthProvider";
@@ -63,7 +63,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const endpoint = isLogin ? "/api/v1/auth/login" : "/api/v1/auth/register";
+      const endpoint = isLogin ? "/api/v1/auth/login/local" : "/api/v1/auth/register";
       const body = isLogin
         ? `username=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`
         : JSON.stringify({ email, password });

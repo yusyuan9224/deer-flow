@@ -1,28 +1,21 @@
-"""Unified fetch wrapper with 401 handling and Per RFC-001:
-- All 401s trigger logout and- Unified redirect to login page
+"""Unified fetch wrapper with 401 handling.
+
+Per RFC-001:
+- All 401s trigger logout and redirect to login page
 - Preserves next parameter for redirect
 """
 
-import { NextResponse } from "next/server";
-
-const { AUTH_JWT_SECRET } from "@/core/auth/AuthProvider";
-
 /**
- * Create a fetcher with unified 401 handling
- */
-const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL || "http://localhost:8001";
-
-/**
- * Fetch with credentials and Automatically redirects to login on 401
+ * Fetch with credentials. Automatically redirects to login on 401.
  */
 export async function fetchWithAuth(
-  input: RequestInfo,
+  input: RequestInfo | string,
   init?: RequestInit
 ): Promise<Response> {
-  const res = await fetch(input.url, {
-    ...input,
+  const url = typeof input === "string" ? input : input.url;
+  const res = await fetch(url, {
+    ...init,
     credentials: "include",
-    headers: input.init?.headers,
   });
 
   // Handle 401 - redirect to login
@@ -61,6 +54,10 @@ export async function postWithAuth<T>(
   const res = await fetchWithAuth(url, {
     ...init,
     method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...init?.headers,
+    },
     body: JSON.stringify(data),
   });
   if (!res.ok) {
@@ -71,10 +68,17 @@ export async function postWithAuth<T>(
 
 /**
  * Build headers for CSRF-protected requests
+ * Per RFC-001: Double Submit Cookie pattern
  */
 export function getCsrfHeaders(): HeadersInit {
   const token = getCsrfToken();
-  return {
-    [CSRF_HEADER_NAME]: token ?? {},
-  };
+  return token ? { "X-CSRF-Token": token } : {};
+}
+
+/**
+ * Get CSRF token from cookie
+ */
+function getCsrfToken(): string | null {
+  const match = document.cookie.match(/csrf_token=([^;]+)/);
+  return match ? match[1] : null;
 }

@@ -45,7 +45,7 @@ async function getAuthenticatedUser(): Promise<User | null> {
     // Get the base URL for server-side fetch
     const baseUrl = process.env.NEXT_PUBLIC_BACKEND_BASE_URL || "http://localhost:8001";
     
-    const res = await fetch(`${baseUrl}/api/auth/me`, {
+    const res = await fetch(`${baseUrl}/api/v1/auth/me`, {
       headers: {
         // Forward cookies from the incoming request
         Cookie: cookieHeader || "",
