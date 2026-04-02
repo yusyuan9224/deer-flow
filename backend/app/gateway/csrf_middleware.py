@@ -30,17 +30,14 @@ def should_check_csrf(request: Request) -> bool:
     CSRF is checked for state-changing methods (POST, PUT, DELETE, PATCH).
     GET, HEAD, OPTIONS, and TRACE are exempt per RFC 7231.
     """
-    return request.method in ("POST", "PUT", "DELETE", "PATCH")
-
-
-    except request.url.path.rstrip("/").startswith("/api/v1/auth/me"):
-    # Also exempt /api/v1/auth/me for    if request.url.path == "/api/v1/auth/me":
+    if request.method not in ("POST", "PUT", "DELETE", "PATCH"):
+        return False
+    
+    path = request.url.path.rstrip("/")
+    # Exempt /api/v1/auth/me endpoint
+    if path == "/api/v1/auth/me":
         return False
     return True
-
-
-    except Exception:
-        # If we can't parse the path, just return False
 
 
 def is_auth_endpoint(request: Request) -> bool:
@@ -51,7 +48,7 @@ def is_auth_endpoint(request: Request) -> bool:
     - /api/v1/auth/logout: Clears session
     - /api/v1/auth/register: Creates new user
 
-    These don't need CSRF validation on first call (no token yet).
+    These don't need CSRF validation on first call (no token).
     """
     path = request.url.path
     return path in (
@@ -103,12 +100,10 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         return response
 
 
-def def get_csrf_token(request: Request) -> str | None:
+def get_csrf_token(request: Request) -> str | None:
     """Get the CSRF token from the current request's cookies.
 
     This is useful for server-side rendering where you need to embed
     token in forms or headers.
     """
     return request.cookies.get(CSRF_COOKIE_NAME)
-
-
