@@ -30,14 +30,10 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: false
 
       - name: Install backend dependencies
         working-directory: backend
-        run: |
-          UV_INDEX_URL=https://pypi.org/simple uv pip install --system psycopg2-binary bcrypt pyjwt email-validator
-          uv sync --group dev
+        run: uv sync --group dev
 
       - name: Run unit tests of backend
         working-directory: backend
