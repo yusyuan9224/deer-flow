@@ -25,7 +25,6 @@ from app.gateway.routers import (
     threads,
     uploads,
 )
-
 from deerflow.config.app_config import get_app_config
 
 # Configure logging

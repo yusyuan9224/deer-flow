@@ -151,7 +151,7 @@ async def _authenticate(request: Request) -> AuthContext:
     return AuthContext(user=user, permissions=permissions)
 
 
-def require_auth(func: Callable[P, T]) -> Callable[P, T]:
+def require_auth[**P, T](func: Callable[P, T]) -> Callable[P, T]:
     """Decorator that authenticates the request and sets AuthContext.
 
     Must be placed ABOVE other decorators (executes after them).
@@ -284,7 +284,7 @@ def require_permission(
 
 
 # Convenience decorators for common permission patterns
-def require_thread_owner(func: Callable[P, T]) -> Callable[P, T]:
+def require_thread_owner[**P, T](func: Callable[P, T]) -> Callable[P, T]:
     """Shortcut for @require_permission("threads", "write", owner_check=True).
 
     Use for endpoints that modify thread state (PATCH, DELETE).
@@ -301,7 +301,7 @@ def require_thread_owner(func: Callable[P, T]) -> Callable[P, T]:
     return wrapper
 
 
-def require_thread_read(func: Callable[P, T]) -> Callable[P, T]:
+def require_thread_read[**P, T](func: Callable[P, T]) -> Callable[P, T]:
     """Shortcut for @require_permission("threads", "read", owner_check=True).
 
     Use for GET thread endpoints.

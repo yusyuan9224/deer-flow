@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { PersonIcon } from "@radix-ui/react-icons";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,8 +13,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-import { PersonIcon } from "@radix-ui/react-icons";
 
 interface User {
   id: string;
@@ -26,7 +26,7 @@ export function UserMenu() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchUser();
+    void fetchUser();
   }, []);
 
   const fetchUser = async () => {
@@ -65,7 +65,7 @@ export function UserMenu() {
   if (!user) {
     return (
       <Button variant="ghost" size="sm" asChild>
-        <a href="/login">Sign In</a>
+        <Link href="/login">Sign In</Link>
       </Button>
     );
   }

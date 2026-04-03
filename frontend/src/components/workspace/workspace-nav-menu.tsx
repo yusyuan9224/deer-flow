@@ -8,7 +8,6 @@ import {
   LogOutIcon,
   MailIcon,
   Settings2Icon,
-  SettingsIcon,
   UserIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";

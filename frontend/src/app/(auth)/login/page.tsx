@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { fetchWithAuth } from "@/core/api/fetcher";
 import { useAuth } from "@/core/auth/AuthProvider";
 import { parseAuthError } from "@/core/auth/types";
 
@@ -44,7 +45,7 @@ function validateNextParam(next: string | null): string | null {
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -54,7 +55,7 @@ export default function LoginPage() {
 
   // Get next parameter for validated redirect
   const nextParam = searchParams.get("next");
-  const redirectPath = validateNextParam(nextParam) || "/workspace";
+  const redirectPath = validateNextParam(nextParam) ?? "/workspace";
 
   // Redirect if already authenticated (client-side, post-login)
   useEffect(() => {
@@ -94,8 +95,6 @@ export default function LoginPage() {
         return;
       }
 
-      const data = await res.json();
-
       if (isLogin) {
         // Login successful — redirect to next or workspace
         router.push(redirectPath);
@@ -105,7 +104,7 @@ export default function LoginPage() {
         setError("");
         alert("Registration successful! Please login.");
       }
-    } catch (err) {
+    } catch (_err) {
       setError("Network error. Please try again.");
     } finally {
       setLoading(false);
@@ -181,9 +180,9 @@ export default function LoginPage() {
         </div>
 
         <div className="text-muted-foreground text-center text-xs">
-          <a href="/" className="hover:underline">
+          <Link href="/" className="hover:underline">
             ← Back to home
-          </a>
+          </Link>
         </div>
       </div>
     </div>

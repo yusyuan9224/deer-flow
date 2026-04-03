@@ -1,5 +1,7 @@
 """PostgreSQL implementation of UserRepository."""
 import asyncio
+import atexit
+import logging
 from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -17,7 +19,8 @@ from app.core.auth.repo import UserRepository
 _pool: ThreadedConnectionPool | None = None
 
 
-"""Get or create the PostgreSQL connection pool."""
+def _get_pool() -> ThreadedConnectionPool:
+    """Get or create the PostgreSQL connection pool."""
     global _pool
     if _pool is None:
         # Trigger config load (may set up defaults)
@@ -74,8 +77,7 @@ def _get_conn() -> Generator[PgConnection, None, None]:
         pool.putconn(conn)
 
 
-# Register shutdown hook
-atexit.register(_close_pool)
+logger = logging.getLogger(__name__)
 
 
 def _close_pool() -> None:
@@ -89,6 +91,9 @@ def _close_pool() -> None:
             logger.warning("Error closing PostgreSQL connection pool: %s", e)
         finally:
             _pool = None
+
+
+atexit.register(_close_pool)
 
 
 def close_pool() -> None:

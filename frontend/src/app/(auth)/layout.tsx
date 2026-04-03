@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { type ReactNode } from "react";
 
@@ -25,12 +26,12 @@ export default async function AuthLayout({
           <p className="text-muted-foreground">
             Service temporarily unavailable.
           </p>
-          <a
+          <Link
             href="/login"
             className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-4 py-2 text-sm"
           >
             Retry
-          </a>
+          </Link>
         </div>
       );
     case "config_error":
