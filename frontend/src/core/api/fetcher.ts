@@ -73,5 +73,5 @@ export function getCsrfHeaders(): HeadersInit {
  */
 function getCsrfToken(): string | null {
   const match = /csrf_token=([^;]+)/.exec(document.cookie);
-  return match ? match[1] : null;
+  return match?.[1] ?? null;
 }
