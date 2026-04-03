@@ -53,7 +53,9 @@ def get_auth_config() -> AuthConfig:
         if not jwt_secret:
             raise ValueError('AUTH_JWT_SECRET environment variable must be set. Generate a secure secret with: python -c "import secrets; print(secrets.token_urlsafe(32))"')
         env = _parse_env()
-        cookie_secure = os.environ.get("AUTH_COOKIE_SECURE", "true").lower() != "false"
+        # Default: secure in production, insecure in development (HTTP)
+        cookie_secure_default = "true" if env == "production" else "false"
+        cookie_secure = os.environ.get("AUTH_COOKIE_SECURE", cookie_secure_default).lower() != "false"
         _auth_config = AuthConfig(
             jwt_secret=jwt_secret,
             env=env,
