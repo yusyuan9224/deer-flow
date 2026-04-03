@@ -1,15 +1,11 @@
 """Authentication configuration for DeerFlow."""
 
-import logging
 import os
-from typing import Literal
 
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 load_dotenv()
-
-logger = logging.getLogger(__name__)
 
 
 class AuthConfig(BaseModel):
@@ -20,8 +16,6 @@ class AuthConfig(BaseModel):
         description="Secret key for JWT signing. MUST be set via AUTH_JWT_SECRET.",
     )
     token_expiry_days: int = Field(default=7, ge=1, le=30)
-    env: Literal["development", "production"] = Field(default="production")
-    cookie_secure: bool = Field(default=True)
     users_db_path: str | None = Field(
         default=None,
         description="Path to users SQLite DB. Defaults to .deer-flow/users.db",
@@ -29,20 +23,8 @@ class AuthConfig(BaseModel):
     oauth_github_client_id: str | None = Field(default=None)
     oauth_github_client_secret: str | None = Field(default=None)
 
-    @field_validator("cookie_secure")
-    @classmethod
-    def enforce_secure_in_prod(cls, v: bool, info) -> bool:
-        if info.data.get("env") == "production" and not v:
-            raise ValueError("cookie_secure must be True in production")
-        return v
-
 
 _auth_config: AuthConfig | None = None
-
-
-def _parse_env() -> Literal["development", "production"]:
-    raw = os.environ.get("ENV", "production").lower()
-    return "development" if raw in ("development", "dev", "local") else "production"
 
 
 def get_auth_config() -> AuthConfig:
@@ -52,17 +34,7 @@ def get_auth_config() -> AuthConfig:
         jwt_secret = os.environ.get("AUTH_JWT_SECRET")
         if not jwt_secret:
             raise ValueError('AUTH_JWT_SECRET environment variable must be set. Generate a secure secret with: python -c "import secrets; print(secrets.token_urlsafe(32))"')
-        env = _parse_env()
-        # Default: secure in production, insecure in development (HTTP)
-        cookie_secure_default = "true" if env == "production" else "false"
-        cookie_secure = os.environ.get("AUTH_COOKIE_SECURE", cookie_secure_default).lower() != "false"
-        _auth_config = AuthConfig(
-            jwt_secret=jwt_secret,
-            env=env,
-            cookie_secure=cookie_secure,
-        )
-        if not cookie_secure:
-            logger.warning("AUTH_COOKIE_SECURE=false — cookies sent without Secure flag")
+        _auth_config = AuthConfig(jwt_secret=jwt_secret)
     return _auth_config
 
 

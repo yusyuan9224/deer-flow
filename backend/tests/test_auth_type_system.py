@@ -32,12 +32,8 @@ from app.gateway.csrf_middleware import (
 _TEST_SECRET = "test-secret-for-auth-type-system-tests-min32"
 
 
-def _setup_dev_config():
-    set_auth_config(AuthConfig(jwt_secret=_TEST_SECRET, env="development", cookie_secure=False))
-
-
-def _setup_prod_config():
-    set_auth_config(AuthConfig(jwt_secret=_TEST_SECRET, env="production", cookie_secure=True))
+def _setup_config():
+    set_auth_config(AuthConfig(jwt_secret=_TEST_SECRET))
 
 
 # ── CSRF Middleware Path Matching ────────────────────────────────────
@@ -129,7 +125,7 @@ def test_auth_error_response_all_codes_serializable():
 
 def test_decode_token_expired_maps_to_token_expired_code():
     """TokenError.EXPIRED should map to AuthErrorCode.TOKEN_EXPIRED."""
-    _setup_dev_config()
+    _setup_config()
     from datetime import UTC, datetime, timedelta
 
     import jwt as pyjwt
@@ -146,7 +142,7 @@ def test_decode_token_expired_maps_to_token_expired_code():
 
 def test_decode_token_invalid_sig_maps_to_token_invalid_code():
     """TokenError.INVALID_SIGNATURE should map to AuthErrorCode.TOKEN_INVALID."""
-    _setup_dev_config()
+    _setup_config()
     from datetime import UTC, datetime, timedelta
 
     import jwt as pyjwt
@@ -162,7 +158,7 @@ def test_decode_token_invalid_sig_maps_to_token_invalid_code():
 
 def test_decode_token_malformed_maps_to_token_invalid_code():
     """TokenError.MALFORMED should map to AuthErrorCode.TOKEN_INVALID."""
-    _setup_dev_config()
+    _setup_config()
     result = decode_token("garbage")
     assert result == TokenError.MALFORMED
 
@@ -193,26 +189,6 @@ def test_login_response_model_fields():
 
 
 # ── AuthConfig in Route ──────────────────────────────────────────────
-
-
-def test_auth_config_cookie_secure_true_in_prod():
-    """Production config should always have cookie_secure=True."""
-    _setup_prod_config()
-    from app.gateway.auth.config import get_auth_config
-
-    config = get_auth_config()
-    assert config.cookie_secure is True
-    assert config.env == "production"
-
-
-def test_auth_config_cookie_secure_false_in_dev():
-    """Dev config can have cookie_secure=False."""
-    _setup_dev_config()
-    from app.gateway.auth.config import get_auth_config
-
-    config = get_auth_config()
-    assert config.cookie_secure is False
-    assert config.env == "development"
 
 
 def test_auth_config_token_expiry_used_in_login_response():
@@ -278,7 +254,7 @@ def test_get_current_user_expired_token_returns_token_expired():
 
     from app.gateway.routers.auth import get_current_user
 
-    _setup_dev_config()
+    _setup_config()
     expired = {"sub": "u1", "exp": datetime.now(UTC) - timedelta(hours=1), "iat": datetime.now(UTC)}
     token = pyjwt.encode(expired, _TEST_SECRET, algorithm="HS256")
 
@@ -297,7 +273,7 @@ def test_get_current_user_invalid_token_returns_token_invalid():
 
     from app.gateway.routers.auth import get_current_user
 
-    _setup_dev_config()
+    _setup_config()
     payload = {"sub": "u1", "exp": datetime.now(UTC) + timedelta(hours=1), "iat": datetime.now(UTC)}
     token = pyjwt.encode(payload, "wrong-secret", algorithm="HS256")
 
@@ -316,7 +292,7 @@ def test_get_current_user_malformed_token_returns_token_invalid():
 
     from app.gateway.routers.auth import get_current_user
 
-    _setup_dev_config()
+    _setup_config()
     with pytest.raises(HTTPException) as exc_info:
         asyncio.run(get_current_user(access_token="not-a-jwt"))
     assert exc_info.value.status_code == 401
@@ -328,13 +304,13 @@ def test_get_current_user_malformed_token_returns_token_invalid():
 
 
 def test_decode_token_empty_string_returns_malformed():
-    _setup_dev_config()
+    _setup_config()
     result = decode_token("")
     assert result == TokenError.MALFORMED
 
 
 def test_decode_token_whitespace_returns_malformed():
-    _setup_dev_config()
+    _setup_config()
     result = decode_token("   ")
     assert result == TokenError.MALFORMED
 
@@ -512,7 +488,7 @@ def _get_auth_client():
 
 def test_api_auth_me_no_cookie_returns_structured_401():
     """/api/v1/auth/me without cookie → 401 with {code: 'not_authenticated'}."""
-    _setup_dev_config()
+    _setup_config()
     client = _get_auth_client()
     resp = client.get("/api/v1/auth/me")
     assert resp.status_code == 401
@@ -523,7 +499,7 @@ def test_api_auth_me_no_cookie_returns_structured_401():
 
 def test_api_auth_me_expired_token_returns_structured_401():
     """/api/v1/auth/me with expired token → 401 with {code: 'token_expired'}."""
-    _setup_dev_config()
+    _setup_config()
     expired = {"sub": "u1", "exp": datetime.now(UTC) - timedelta(hours=1), "iat": datetime.now(UTC)}
     token = pyjwt.encode(expired, _TEST_SECRET, algorithm="HS256")
 
@@ -537,7 +513,7 @@ def test_api_auth_me_expired_token_returns_structured_401():
 
 def test_api_auth_me_invalid_sig_returns_structured_401():
     """/api/v1/auth/me with bad signature → 401 with {code: 'token_invalid'}."""
-    _setup_dev_config()
+    _setup_config()
     payload = {"sub": "u1", "exp": datetime.now(UTC) + timedelta(hours=1), "iat": datetime.now(UTC)}
     token = pyjwt.encode(payload, "wrong-key", algorithm="HS256")
 
@@ -551,7 +527,7 @@ def test_api_auth_me_invalid_sig_returns_structured_401():
 
 def test_api_login_bad_credentials_returns_structured_401():
     """Login with wrong password → 401 with {code: 'invalid_credentials'}."""
-    _setup_dev_config()
+    _setup_config()
     client = _get_auth_client()
     resp = client.post(
         "/api/v1/auth/login/local",
@@ -564,7 +540,7 @@ def test_api_login_bad_credentials_returns_structured_401():
 
 def test_api_login_success_no_token_in_body():
     """Successful login → response body has expires_in but NOT access_token."""
-    _setup_dev_config()
+    _setup_config()
     client = _get_auth_client()
     # Register first
     client.post(
@@ -586,7 +562,7 @@ def test_api_login_success_no_token_in_body():
 
 def test_api_register_duplicate_returns_structured_400():
     """Register with duplicate email → 400 with {code: 'email_already_exists'}."""
-    _setup_dev_config()
+    _setup_config()
     client = _get_auth_client()
     email = "dup-contract-test@test.com"
     # First register

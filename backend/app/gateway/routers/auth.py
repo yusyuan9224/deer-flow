@@ -1,6 +1,6 @@
 """Authentication endpoints."""
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr
 
@@ -94,6 +94,7 @@ async def get_optional_user(access_token: str | None = Cookie(None)) -> User | N
 
 @router.post("/login/local", response_model=LoginResponse)
 async def login_local(
+    request: Request,
     response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
 ):
@@ -112,12 +113,13 @@ async def login_local(
 
     config = get_auth_config()
     token = create_access_token(str(user.id))
+    is_https = request.url.scheme == "https"
 
     response.set_cookie(
         key="access_token",
         value=token,
         httponly=True,
-        secure=config.cookie_secure,
+        secure=is_https,
         samesite="lax",
         max_age=config.token_expiry_days * 24 * 3600,
     )

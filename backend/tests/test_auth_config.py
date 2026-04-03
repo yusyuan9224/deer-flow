@@ -10,27 +10,20 @@ from app.gateway.auth.config import AuthConfig
 
 def test_auth_config_defaults():
     config = AuthConfig(jwt_secret="test-secret-key-123")
-    assert config.env == "production"
-    assert config.cookie_secure is True
     assert config.token_expiry_days == 7
 
 
-def test_auth_config_dev_allows_insecure_cookie():
-    config = AuthConfig(jwt_secret="test-secret", env="development", cookie_secure=False)
-    assert config.cookie_secure is False
-
-
-def test_auth_config_prod_rejects_insecure_cookie():
-    with pytest.raises(ValueError, match="cookie_secure must be True in production"):
-        AuthConfig(jwt_secret="test-secret", env="production", cookie_secure=False)
+def test_auth_config_token_expiry_range():
+    AuthConfig(jwt_secret="s", token_expiry_days=1)
+    AuthConfig(jwt_secret="s", token_expiry_days=30)
+    with pytest.raises(Exception):
+        AuthConfig(jwt_secret="s", token_expiry_days=0)
+    with pytest.raises(Exception):
+        AuthConfig(jwt_secret="s", token_expiry_days=31)
 
 
 def test_auth_config_from_env():
-    env = {
-        "AUTH_JWT_SECRET": "test-jwt-secret-from-env",
-        "ENV": "development",
-        "AUTH_COOKIE_SECURE": "false",
-    }
+    env = {"AUTH_JWT_SECRET": "test-jwt-secret-from-env"}
     with patch.dict(os.environ, env, clear=False):
         import app.gateway.auth.config as cfg
 
@@ -39,7 +32,19 @@ def test_auth_config_from_env():
         try:
             config = cfg.get_auth_config()
             assert config.jwt_secret == "test-jwt-secret-from-env"
-            assert config.env == "development"
-            assert config.cookie_secure is False
         finally:
             cfg._auth_config = old
+
+
+def test_auth_config_missing_secret_raises():
+    import app.gateway.auth.config as cfg
+
+    old = cfg._auth_config
+    cfg._auth_config = None
+    try:
+        with patch.dict(os.environ, {}, clear=True):
+            os.environ.pop("AUTH_JWT_SECRET", None)
+            with pytest.raises(ValueError, match="AUTH_JWT_SECRET"):
+                cfg.get_auth_config()
+    finally:
+        cfg._auth_config = old

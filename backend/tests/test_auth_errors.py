@@ -42,7 +42,7 @@ _TEST_SECRET = "test-secret-for-jwt-decode-token-tests"
 
 
 def _setup_config():
-    set_auth_config(AuthConfig(jwt_secret=_TEST_SECRET, env="development", cookie_secure=False))
+    set_auth_config(AuthConfig(jwt_secret=_TEST_SECRET))
 
 
 def test_decode_token_returns_token_error_on_expired():
