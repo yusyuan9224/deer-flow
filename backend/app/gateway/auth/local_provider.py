@@ -1,9 +1,9 @@
 """Local email/password authentication provider."""
 
-from app.core.auth.models import User
-from app.core.auth.password import hash_password_async, verify_password_async
-from app.core.auth.providers import AuthProvider
-from app.core.auth.repo import UserRepository
+from app.gateway.auth.models import User
+from app.gateway.auth.password import hash_password_async, verify_password_async
+from app.gateway.auth.providers import AuthProvider
+from app.gateway.auth.repositories.base import UserRepository
 
 
 class LocalAuthProvider(AuthProvider):

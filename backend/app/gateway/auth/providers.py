@@ -57,4 +57,4 @@ class AuthResult(BaseModel):
 
 
 # Import User at runtime to avoid circular imports
-from app.core.auth.models import User  # noqa: E402
+from app.gateway.auth.models import User  # noqa: E402

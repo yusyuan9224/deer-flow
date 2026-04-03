@@ -4,8 +4,8 @@ from datetime import UTC, datetime, timedelta
 import jwt
 from pydantic import BaseModel
 
-from app.core.auth.config import get_auth_config
-from app.core.auth.errors import TokenError
+from app.gateway.auth.config import get_auth_config
+from app.gateway.auth.errors import TokenError
 
 
 class TokenPayload(BaseModel):

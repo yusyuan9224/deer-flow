@@ -17,8 +17,8 @@ from fastapi import FastAPI, HTTPException, Request
 from deerflow.runtime import RunManager, StreamBridge
 
 if TYPE_CHECKING:
-    from app.core.auth.local_provider import LocalAuthProvider
-    from app.core.auth.sqlite_user_repository import SQLiteUserRepository
+    from app.gateway.auth.local_provider import LocalAuthProvider
+    from app.gateway.auth.repositories.sqlite import SQLiteUserRepository
 
 # ---------------------------------------------------------------------------
 # Getters – called by routers per-request
@@ -67,10 +67,10 @@ def _get_local_provider() -> LocalAuthProvider:
     """Get or create the cached LocalAuthProvider singleton."""
     global _cached_local_provider, _cached_repo
     if _cached_repo is None:
-        from app.core.auth.sqlite_user_repository import SQLiteUserRepository
+        from app.gateway.auth.repositories.sqlite import SQLiteUserRepository
         _cached_repo = SQLiteUserRepository()
     if _cached_local_provider is None:
-        from app.core.auth.local_provider import LocalAuthProvider
+        from app.gateway.auth.local_provider import LocalAuthProvider
         _cached_local_provider = LocalAuthProvider(repository=_cached_repo)
     return _cached_local_provider
 
@@ -80,8 +80,8 @@ async def get_current_user_from_request(request: Request):
 
     Raises HTTPException 401 if not authenticated.
     """
-    from app.core.auth import decode_token
-    from app.core.auth.errors import AuthErrorCode, AuthErrorResponse, TokenError, token_error_to_code
+    from app.gateway.auth import decode_token
+    from app.gateway.auth.errors import AuthErrorCode, AuthErrorResponse, TokenError, token_error_to_code
 
     access_token = request.cookies.get("access_token")
     if not access_token:

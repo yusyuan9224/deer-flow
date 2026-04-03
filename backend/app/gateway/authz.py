@@ -36,7 +36,7 @@ from typing import TYPE_CHECKING, Any, ParamSpec, TypeVar
 from fastapi import HTTPException, Request
 
 if TYPE_CHECKING:
-    from app.core.auth.models import User
+    from app.gateway.auth.models import User
 
 P = ParamSpec("P")
 T = TypeVar("T")
@@ -119,8 +119,8 @@ async def _authenticate(request: Request) -> AuthContext:
     Reads access_token from cookie, validates JWT, and returns user info.
     Returns AuthContext with user=None for anonymous requests.
     """
-    from app.core.auth import decode_token
-    from app.core.auth.errors import TokenError
+    from app.gateway.auth import decode_token
+    from app.gateway.auth.errors import TokenError
 
     access_token = request.cookies.get("access_token")
     if not access_token:

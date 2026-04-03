@@ -10,7 +10,7 @@ from uuid import uuid4
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.core.auth.models import User
+from app.gateway.auth.models import User
 from app.gateway.authz import AuthContext
 from app.gateway.routers.thread_runs import router
 

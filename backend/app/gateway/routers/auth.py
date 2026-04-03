@@ -3,17 +3,17 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr
 
-from app.core.auth import (
+from app.gateway.auth import (
     UserResponse,
     create_access_token,
     decode_token,
 )
-from app.core.auth.config import get_auth_config
-from app.core.auth.errors import AuthErrorCode, AuthErrorResponse, TokenError, token_error_to_code
-from app.core.auth.local_provider import LocalAuthProvider
-from app.core.auth.models import User
-from app.core.auth.providers import ProviderFactory
-from app.core.auth.sqlite_user_repository import SQLiteUserRepository
+from app.gateway.auth.config import get_auth_config
+from app.gateway.auth.errors import AuthErrorCode, AuthErrorResponse, TokenError, token_error_to_code
+from app.gateway.auth.local_provider import LocalAuthProvider
+from app.gateway.auth.models import User
+from app.gateway.auth.providers import ProviderFactory
+from app.gateway.auth.repositories.sqlite import SQLiteUserRepository
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 

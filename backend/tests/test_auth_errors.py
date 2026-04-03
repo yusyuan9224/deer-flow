@@ -3,9 +3,9 @@ from datetime import UTC, datetime, timedelta
 
 import jwt as pyjwt
 
-from app.core.auth.config import AuthConfig, set_auth_config
-from app.core.auth.errors import AuthErrorCode, AuthErrorResponse, TokenError
-from app.core.auth.jwt import create_access_token, decode_token
+from app.gateway.auth.config import AuthConfig, set_auth_config
+from app.gateway.auth.errors import AuthErrorCode, AuthErrorResponse, TokenError
+from app.gateway.auth.jwt import create_access_token, decode_token
 
 
 def test_auth_error_code_values():

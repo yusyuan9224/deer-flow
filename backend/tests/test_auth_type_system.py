@@ -15,9 +15,9 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from app.core.auth.config import AuthConfig, set_auth_config
-from app.core.auth.errors import AuthErrorCode, AuthErrorResponse, TokenError
-from app.core.auth.jwt import decode_token
+from app.gateway.auth.config import AuthConfig, set_auth_config
+from app.gateway.auth.errors import AuthErrorCode, AuthErrorResponse, TokenError
+from app.gateway.auth.jwt import decode_token
 from app.gateway.csrf_middleware import (
     CSRF_COOKIE_NAME,
     CSRF_HEADER_NAME,
@@ -197,7 +197,7 @@ def test_login_response_model_fields():
 def test_auth_config_cookie_secure_true_in_prod():
     """Production config should always have cookie_secure=True."""
     _setup_prod_config()
-    from app.core.auth.config import get_auth_config
+    from app.gateway.auth.config import get_auth_config
 
     config = get_auth_config()
     assert config.cookie_secure is True
@@ -207,7 +207,7 @@ def test_auth_config_cookie_secure_true_in_prod():
 def test_auth_config_cookie_secure_false_in_dev():
     """Dev config can have cookie_secure=False."""
     _setup_dev_config()
-    from app.core.auth.config import get_auth_config
+    from app.gateway.auth.config import get_auth_config
 
     config = get_auth_config()
     assert config.cookie_secure is False
@@ -228,7 +228,7 @@ def test_auth_config_token_expiry_used_in_login_response():
 
 def test_user_response_system_role_literal():
     """UserResponse.system_role should only accept 'admin' or 'user'."""
-    from app.core.auth.models import UserResponse
+    from app.gateway.auth.models import UserResponse
 
     # Valid roles
     resp = UserResponse(id="1", email="a@b.com", system_role="admin")
@@ -240,7 +240,7 @@ def test_user_response_system_role_literal():
 
 def test_user_response_rejects_invalid_role():
     """UserResponse should reject invalid system_role values."""
-    from app.core.auth.models import UserResponse
+    from app.gateway.auth.models import UserResponse
 
     with pytest.raises(ValidationError):
         UserResponse(id="1", email="a@b.com", system_role="superadmin")
@@ -371,7 +371,7 @@ def test_auth_config_token_expiry_boundary_30_ok():
 
 def test_get_auth_config_missing_env_var_raises():
     """get_auth_config() should raise when AUTH_JWT_SECRET is unset."""
-    import app.core.auth.config as cfg
+    import app.gateway.auth.config as cfg
 
     old = cfg._auth_config
     cfg._auth_config = None
@@ -475,7 +475,7 @@ def test_csrf_middleware_sets_cookie_on_auth_endpoint():
 
 def test_user_response_missing_required_fields():
     """UserResponse with missing fields → ValidationError."""
-    from app.core.auth.models import UserResponse
+    from app.gateway.auth.models import UserResponse
 
     with pytest.raises(ValidationError):
         UserResponse(id="1")  # missing email, system_role
@@ -486,7 +486,7 @@ def test_user_response_missing_required_fields():
 
 def test_user_response_empty_string_role_rejected():
     """Empty string is not a valid role."""
-    from app.core.auth.models import UserResponse
+    from app.gateway.auth.models import UserResponse
 
     with pytest.raises(ValidationError):
         UserResponse(id="1", email="a@b.com", system_role="")

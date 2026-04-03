@@ -5,14 +5,14 @@ This module provides:
 - Provider Factory pattern for extensible auth methods
 - UserRepository interface for different storage backends (SQLite, PostgreSQL)
 """
-from app.core.auth.config import AuthConfig, get_auth_config, set_auth_config
-from app.core.auth.errors import AuthErrorCode, AuthErrorResponse, TokenError
-from app.core.auth.jwt import TokenPayload, create_access_token, decode_token
-from app.core.auth.local_provider import LocalAuthProvider
-from app.core.auth.models import User, UserCreate, UserInDB, UserResponse
-from app.core.auth.password import hash_password, verify_password
-from app.core.auth.providers import AuthProvider, AuthResult, ProviderFactory
-from app.core.auth.repo import UserRepository
+from app.gateway.auth.config import AuthConfig, get_auth_config, set_auth_config
+from app.gateway.auth.errors import AuthErrorCode, AuthErrorResponse, TokenError
+from app.gateway.auth.jwt import TokenPayload, create_access_token, decode_token
+from app.gateway.auth.local_provider import LocalAuthProvider
+from app.gateway.auth.models import User, UserCreate, UserInDB, UserResponse
+from app.gateway.auth.password import hash_password, verify_password
+from app.gateway.auth.providers import AuthProvider, AuthResult, ProviderFactory
+from app.gateway.auth.repositories.base import UserRepository
 
 __all__ = [
     # Config

@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from app.core.auth.config import AuthConfig
+from app.gateway.auth.config import AuthConfig
 
 
 def test_auth_config_defaults():
@@ -31,7 +31,7 @@ def test_auth_config_from_env():
         "AUTH_COOKIE_SECURE": "false",
     }
     with patch.dict(os.environ, env, clear=False):
-        import app.core.auth.config as cfg
+        import app.gateway.auth.config as cfg
 
         old = cfg._auth_config
         cfg._auth_config = None

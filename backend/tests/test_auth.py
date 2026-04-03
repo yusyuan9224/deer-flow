@@ -8,8 +8,8 @@ import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
-from app.core.auth import create_access_token, decode_token, hash_password, verify_password
-from app.core.auth.models import User
+from app.gateway.auth import create_access_token, decode_token, hash_password, verify_password
+from app.gateway.auth.models import User
 from app.gateway.authz import (
     AuthContext,
     Permissions,
@@ -66,7 +66,7 @@ def test_create_and_decode_token():
 
 def test_decode_token_expired():
     """Expired token returns TokenError.EXPIRED."""
-    from app.core.auth.errors import TokenError
+    from app.gateway.auth.errors import TokenError
 
     user_id = str(uuid4())
     # Create token that expires immediately
@@ -77,7 +77,7 @@ def test_decode_token_expired():
 
 def test_decode_token_invalid():
     """Invalid token returns TokenError."""
-    from app.core.auth.errors import TokenError
+    from app.gateway.auth.errors import TokenError
 
     assert isinstance(decode_token("not.a.valid.token"), TokenError)
     assert isinstance(decode_token(""), TokenError)
@@ -241,7 +241,7 @@ def test_require_permission_denies_wrong_permission():
 
 def test_missing_jwt_secret_raises(monkeypatch):
     """get_auth_config() raises ValueError when AUTH_JWT_SECRET is unset."""
-    import app.core.auth.config as config_module
+    import app.gateway.auth.config as config_module
 
     config_module._auth_config = None
     monkeypatch.delenv("AUTH_JWT_SECRET", raising=False)

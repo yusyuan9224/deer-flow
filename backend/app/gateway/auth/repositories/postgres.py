@@ -12,9 +12,9 @@ import psycopg2
 from psycopg2.extensions import connection as PgConnection
 from psycopg2.pool import ThreadedConnectionPool
 
-from app.core.auth.config import get_auth_config
-from app.core.auth.models import User
-from app.core.auth.repo import UserRepository
+from app.gateway.auth.config import get_auth_config
+from app.gateway.auth.models import User
+from app.gateway.auth.repositories.base import UserRepository
 
 _pool: ThreadedConnectionPool | None = None
 
