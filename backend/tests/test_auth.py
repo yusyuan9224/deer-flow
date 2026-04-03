@@ -65,19 +65,23 @@ def test_create_and_decode_token():
 
 
 def test_decode_token_expired():
-    """Expired token returns None."""
+    """Expired token returns TokenError.EXPIRED."""
+    from app.core.auth.errors import TokenError
+
     user_id = str(uuid4())
     # Create token that expires immediately
     token = create_access_token(user_id, expires_delta=timedelta(seconds=-1))
     payload = decode_token(token)
-    assert payload is None
+    assert payload == TokenError.EXPIRED
 
 
 def test_decode_token_invalid():
-    """Invalid token returns None."""
-    assert decode_token("not.a.valid.token") is None
-    assert decode_token("") is None
-    assert decode_token("completely-wrong") is None
+    """Invalid token returns TokenError."""
+    from app.core.auth.errors import TokenError
+
+    assert isinstance(decode_token("not.a.valid.token"), TokenError)
+    assert isinstance(decode_token(""), TokenError)
+    assert isinstance(decode_token("completely-wrong"), TokenError)
 
 
 def test_create_token_custom_expiry():
@@ -235,26 +239,15 @@ def test_require_permission_denies_wrong_permission():
 # ── Weak JWT secret warning ──────────────────────────────────────────────────
 
 
-def test_weak_secret_triggers_warning(monkeypatch):
-    """Using the default JWT secret triggers a warning at config load time."""
-    import warnings
-
+def test_missing_jwt_secret_raises(monkeypatch):
+    """get_auth_config() raises ValueError when AUTH_JWT_SECRET is unset."""
     import app.core.auth.config as config_module
 
-    # Reset global config so warning fires on next get_auth_config()
     config_module._auth_config = None
+    monkeypatch.delenv("AUTH_JWT_SECRET", raising=False)
 
-    # Suppress warnings during this test so we can assert on them
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        config_module._auth_config = None
-        cfg = config_module.get_auth_config()
-        # Should return weak default
-        assert cfg.jwt_secret == "CHANGE_ME_IN_PRODUCTION"
-        # Warning should have been issued
-        user_warnings = [w for w in caught if issubclass(w.category, UserWarning)]
-        assert len(user_warnings) >= 1
-        assert "JWT secret" in str(user_warnings[0].message)
+    with pytest.raises(ValueError, match="AUTH_JWT_SECRET"):
+        config_module.get_auth_config()
 
     # Cleanup
     config_module._auth_config = None

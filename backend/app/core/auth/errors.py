@@ -4,12 +4,12 @@ AuthErrorCode: exhaustive enum of all auth failure conditions.
 TokenError: exhaustive enum of JWT decode failures.
 AuthErrorResponse: structured error payload for HTTP responses.
 """
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel
 
 
-class AuthErrorCode(str, Enum):
+class AuthErrorCode(StrEnum):
     """Exhaustive list of auth error conditions."""
 
     INVALID_CREDENTIALS = "invalid_credentials"
@@ -21,7 +21,7 @@ class AuthErrorCode(str, Enum):
     NOT_AUTHENTICATED = "not_authenticated"
 
 
-class TokenError(str, Enum):
+class TokenError(StrEnum):
     """Exhaustive list of JWT decode failure reasons."""
 
     EXPIRED = "expired"

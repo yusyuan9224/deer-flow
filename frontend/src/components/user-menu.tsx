@@ -59,7 +59,7 @@ export function UserMenu() {
   };
 
   if (loading) {
-    return <div className="h-8 w-8 animate-pulse rounded-full bg-muted" />;
+    return <div className="bg-muted h-8 w-8 animate-pulse rounded-full" />;
   }
 
   if (!user) {
@@ -82,7 +82,7 @@ export function UserMenu() {
         <DropdownMenuItem className="text-sm">
           <div>
             <p className="font-medium">{user.email}</p>
-            <p className="text-xs text-muted-foreground">{user.system_role}</p>
+            <p className="text-muted-foreground text-xs">{user.system_role}</p>
           </div>
         </DropdownMenuItem>
         <DropdownMenuSeparator />

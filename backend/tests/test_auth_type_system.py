@@ -7,19 +7,17 @@ and unhappy paths / edge cases for all auth boundaries.
 import os
 import secrets
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import jwt as pyjwt
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
-from starlette.requests import Request
-from starlette.responses import JSONResponse
 
 from app.core.auth.config import AuthConfig, set_auth_config
 from app.core.auth.errors import AuthErrorCode, AuthErrorResponse, TokenError
-from app.core.auth.jwt import create_access_token, decode_token
+from app.core.auth.jwt import decode_token
 from app.gateway.csrf_middleware import (
     CSRF_COOKIE_NAME,
     CSRF_HEADER_NAME,
@@ -27,7 +25,6 @@ from app.gateway.csrf_middleware import (
     is_auth_endpoint,
     should_check_csrf,
 )
-
 
 # ── Setup ────────────────────────────────────────────────────────────
 
@@ -132,8 +129,9 @@ def test_auth_error_response_all_codes_serializable():
 def test_decode_token_expired_maps_to_token_expired_code():
     """TokenError.EXPIRED should map to AuthErrorCode.TOKEN_EXPIRED."""
     _setup_dev_config()
-    import jwt as pyjwt
     from datetime import UTC, datetime, timedelta
+
+    import jwt as pyjwt
 
     expired = {"sub": "u1", "exp": datetime.now(UTC) - timedelta(hours=1), "iat": datetime.now(UTC)}
     token = pyjwt.encode(expired, _TEST_SECRET, algorithm="HS256")
@@ -148,8 +146,9 @@ def test_decode_token_expired_maps_to_token_expired_code():
 def test_decode_token_invalid_sig_maps_to_token_invalid_code():
     """TokenError.INVALID_SIGNATURE should map to AuthErrorCode.TOKEN_INVALID."""
     _setup_dev_config()
-    import jwt as pyjwt
     from datetime import UTC, datetime, timedelta
+
+    import jwt as pyjwt
 
     payload = {"sub": "u1", "exp": datetime.now(UTC) + timedelta(hours=1), "iat": datetime.now(UTC)}
     token = pyjwt.encode(payload, "wrong-key", algorithm="HS256")
@@ -219,7 +218,6 @@ def test_auth_config_token_expiry_used_in_login_response():
     """LoginResponse.expires_in should come from config.token_expiry_days."""
     from app.gateway.routers.auth import LoginResponse
 
-    config = AuthConfig(jwt_secret=_TEST_SECRET, env="development", cookie_secure=False, token_expiry_days=14)
     expected_seconds = 14 * 24 * 3600
     resp = LoginResponse(expires_in=expected_seconds)
     assert resp.expires_in == expected_seconds
@@ -259,11 +257,13 @@ def test_user_response_rejects_invalid_role():
 def test_get_current_user_no_cookie_returns_not_authenticated():
     """No cookie → 401 with code=not_authenticated."""
     import asyncio
-    from app.gateway.routers.auth import get_current_user
+
     from fastapi import HTTPException
 
+    from app.gateway.routers.auth import get_current_user
+
     with pytest.raises(HTTPException) as exc_info:
-        asyncio.get_event_loop().run_until_complete(get_current_user(access_token=None))
+        asyncio.run(get_current_user(access_token=None))
     assert exc_info.value.status_code == 401
     detail = exc_info.value.detail
     assert detail["code"] == "not_authenticated"
@@ -272,15 +272,17 @@ def test_get_current_user_no_cookie_returns_not_authenticated():
 def test_get_current_user_expired_token_returns_token_expired():
     """Expired token → 401 with code=token_expired."""
     import asyncio
-    _setup_dev_config()
-    from app.gateway.routers.auth import get_current_user
+
     from fastapi import HTTPException
 
+    from app.gateway.routers.auth import get_current_user
+
+    _setup_dev_config()
     expired = {"sub": "u1", "exp": datetime.now(UTC) - timedelta(hours=1), "iat": datetime.now(UTC)}
     token = pyjwt.encode(expired, _TEST_SECRET, algorithm="HS256")
 
     with pytest.raises(HTTPException) as exc_info:
-        asyncio.get_event_loop().run_until_complete(get_current_user(access_token=token))
+        asyncio.run(get_current_user(access_token=token))
     assert exc_info.value.status_code == 401
     detail = exc_info.value.detail
     assert detail["code"] == "token_expired"
@@ -289,15 +291,17 @@ def test_get_current_user_expired_token_returns_token_expired():
 def test_get_current_user_invalid_token_returns_token_invalid():
     """Bad signature → 401 with code=token_invalid."""
     import asyncio
-    _setup_dev_config()
-    from app.gateway.routers.auth import get_current_user
+
     from fastapi import HTTPException
 
+    from app.gateway.routers.auth import get_current_user
+
+    _setup_dev_config()
     payload = {"sub": "u1", "exp": datetime.now(UTC) + timedelta(hours=1), "iat": datetime.now(UTC)}
     token = pyjwt.encode(payload, "wrong-secret", algorithm="HS256")
 
     with pytest.raises(HTTPException) as exc_info:
-        asyncio.get_event_loop().run_until_complete(get_current_user(access_token=token))
+        asyncio.run(get_current_user(access_token=token))
     assert exc_info.value.status_code == 401
     detail = exc_info.value.detail
     assert detail["code"] == "token_invalid"
@@ -306,12 +310,14 @@ def test_get_current_user_invalid_token_returns_token_invalid():
 def test_get_current_user_malformed_token_returns_token_invalid():
     """Garbage token → 401 with code=token_invalid."""
     import asyncio
-    _setup_dev_config()
-    from app.gateway.routers.auth import get_current_user
+
     from fastapi import HTTPException
 
+    from app.gateway.routers.auth import get_current_user
+
+    _setup_dev_config()
     with pytest.raises(HTTPException) as exc_info:
-        asyncio.get_event_loop().run_until_complete(get_current_user(access_token="not-a-jwt"))
+        asyncio.run(get_current_user(access_token="not-a-jwt"))
     assert exc_info.value.status_code == 401
     detail = exc_info.value.detail
     assert detail["code"] == "token_invalid"
