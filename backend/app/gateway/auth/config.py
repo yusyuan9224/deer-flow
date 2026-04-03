@@ -1,4 +1,5 @@
 """Authentication configuration for DeerFlow."""
+
 import logging
 import os
 from typing import Literal
@@ -50,10 +51,7 @@ def get_auth_config() -> AuthConfig:
     if _auth_config is None:
         jwt_secret = os.environ.get("AUTH_JWT_SECRET")
         if not jwt_secret:
-            raise ValueError(
-                "AUTH_JWT_SECRET environment variable must be set. "
-                'Generate a secure secret with: python -c "import secrets; print(secrets.token_urlsafe(32))"'
-            )
+            raise ValueError('AUTH_JWT_SECRET environment variable must be set. Generate a secure secret with: python -c "import secrets; print(secrets.token_urlsafe(32))"')
         env = _parse_env()
         cookie_secure = os.environ.get("AUTH_COOKIE_SECURE", "true").lower() != "false"
         _auth_config = AuthConfig(

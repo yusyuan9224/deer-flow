@@ -1,4 +1,5 @@
 """Auth provider abstraction and factory."""
+
 from abc import ABC, abstractmethod
 from typing import ClassVar
 

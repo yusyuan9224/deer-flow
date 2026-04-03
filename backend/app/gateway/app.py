@@ -177,11 +177,7 @@ This gateway provides custom endpoints for models, MCP configuration, skills, an
         # Validate: wildcard origin with credentials is a security misconfiguration
         for origin in cors_origins:
             if origin == "*":
-                logger.error(
-                    "GATEWAY_CORS_ORIGINS contains wildcard '*' with allow_credentials=True. "
-                    "This is a security misconfiguration — browsers will reject the response. "
-                    "Use explicit scheme://host:port origins instead."
-                )
+                logger.error("GATEWAY_CORS_ORIGINS contains wildcard '*' with allow_credentials=True. This is a security misconfiguration — browsers will reject the response. Use explicit scheme://host:port origins instead.")
                 cors_origins = [o for o in cors_origins if o != "*"]
                 break
         if cors_origins:

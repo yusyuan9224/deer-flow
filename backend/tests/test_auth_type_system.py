@@ -4,6 +4,7 @@ Covers structured error responses, typed decode_token callers,
 CSRF middleware path matching, config-driven cookie security,
 and unhappy paths / edge cases for all auth boundaries.
 """
+
 import os
 import secrets
 from datetime import UTC, datetime, timedelta
@@ -500,6 +501,7 @@ def test_user_response_empty_string_role_rejected():
 def _make_auth_app():
     """Create FastAPI app with auth routes for contract testing."""
     from app.gateway.app import create_app
+
     return create_app()
 
 

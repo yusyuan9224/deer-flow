@@ -1,4 +1,5 @@
 """Tests for AuthConfig typed configuration."""
+
 import os
 from unittest.mock import patch
 

@@ -1,4 +1,5 @@
 """Tests for auth error types and typed decode_token."""
+
 from datetime import UTC, datetime, timedelta
 
 import jwt as pyjwt

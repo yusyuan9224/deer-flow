@@ -1,4 +1,5 @@
 """Authentication endpoints."""
+
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr
@@ -56,9 +57,7 @@ async def get_current_user(access_token: str | None = Cookie(None)) -> User:
     if not access_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=AuthErrorResponse(
-                code=AuthErrorCode.NOT_AUTHENTICATED, message="Not authenticated"
-            ).model_dump(),
+            detail=AuthErrorResponse(code=AuthErrorCode.NOT_AUTHENTICATED, message="Not authenticated").model_dump(),
         )
 
     payload = decode_token(access_token)
@@ -66,18 +65,14 @@ async def get_current_user(access_token: str | None = Cookie(None)) -> User:
         code = token_error_to_code(payload)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=AuthErrorResponse(
-                code=code, message=f"Token error: {payload.value}"
-            ).model_dump(),
+            detail=AuthErrorResponse(code=code, message=f"Token error: {payload.value}").model_dump(),
         )
 
     user = await _local_provider.get_user(payload.sub)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=AuthErrorResponse(
-                code=AuthErrorCode.USER_NOT_FOUND, message="User not found"
-            ).model_dump(),
+            detail=AuthErrorResponse(code=AuthErrorCode.USER_NOT_FOUND, message="User not found").model_dump(),
         )
 
     return user
@@ -107,16 +102,12 @@ async def login_local(
     Authenticates user with username (email) and password,
     sets JWT as HttpOnly cookie only (not in response body per RFC-001).
     """
-    user = await _local_provider.authenticate(
-        {"email": form_data.username, "password": form_data.password}
-    )
+    user = await _local_provider.authenticate({"email": form_data.username, "password": form_data.password})
 
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=AuthErrorResponse(
-                code=AuthErrorCode.INVALID_CREDENTIALS, message="Incorrect email or password"
-            ).model_dump(),
+            detail=AuthErrorResponse(code=AuthErrorCode.INVALID_CREDENTIALS, message="Incorrect email or password").model_dump(),
         )
 
     config = get_auth_config()
@@ -142,9 +133,7 @@ async def register(body: RegisterRequest):
     if existing is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=AuthErrorResponse(
-                code=AuthErrorCode.EMAIL_ALREADY_EXISTS, message="Email already registered"
-            ).model_dump(),
+            detail=AuthErrorResponse(code=AuthErrorCode.EMAIL_ALREADY_EXISTS, message="Email already registered").model_dump(),
         )
 
     try:
@@ -152,9 +141,7 @@ async def register(body: RegisterRequest):
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=AuthErrorResponse(
-                code=AuthErrorCode.EMAIL_ALREADY_EXISTS, message="Email already registered"
-            ).model_dump(),
+            detail=AuthErrorResponse(code=AuthErrorCode.EMAIL_ALREADY_EXISTS, message="Email already registered").model_dump(),
         )
 
     return UserResponse(id=str(user.id), email=user.email, system_role=user.system_role)

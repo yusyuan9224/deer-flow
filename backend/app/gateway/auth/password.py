@@ -1,4 +1,5 @@
 """Password hashing utilities using bcrypt directly."""
+
 import asyncio
 
 import bcrypt

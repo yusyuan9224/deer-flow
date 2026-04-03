@@ -41,6 +41,7 @@ if TYPE_CHECKING:
 P = ParamSpec("P")
 T = TypeVar("T")
 
+
 # Permission constants
 class Permissions:
     """Permission constants for resource:action format."""
@@ -132,6 +133,7 @@ async def _authenticate(request: Request) -> AuthContext:
 
     # Use cached provider singleton to avoid repeated instantiation
     from app.gateway.deps import _get_local_provider
+
     provider = _get_local_provider()
     user = await provider.get_user(payload.sub)
     if user is None:
@@ -255,9 +257,7 @@ def require_permission(
             if owner_check:
                 thread_id = kwargs.get("thread_id")
                 if thread_id is None:
-                    raise ValueError(
-                        "require_permission with owner_check=True requires 'thread_id' parameter"
-                    )
+                    raise ValueError("require_permission with owner_check=True requires 'thread_id' parameter")
 
                 # Get thread and verify ownership
                 from app.gateway.routers.threads import _store_get, get_store

@@ -1,4 +1,5 @@
 """JWT token creation and verification."""
+
 from datetime import UTC, datetime, timedelta
 
 import jwt

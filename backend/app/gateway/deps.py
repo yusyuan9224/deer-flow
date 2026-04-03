@@ -68,9 +68,11 @@ def _get_local_provider() -> LocalAuthProvider:
     global _cached_local_provider, _cached_repo
     if _cached_repo is None:
         from app.gateway.auth.repositories.sqlite import SQLiteUserRepository
+
         _cached_repo = SQLiteUserRepository()
     if _cached_local_provider is None:
         from app.gateway.auth.local_provider import LocalAuthProvider
+
         _cached_local_provider = LocalAuthProvider(repository=_cached_repo)
     return _cached_local_provider
 
@@ -87,18 +89,14 @@ async def get_current_user_from_request(request: Request):
     if not access_token:
         raise HTTPException(
             status_code=401,
-            detail=AuthErrorResponse(
-                code=AuthErrorCode.NOT_AUTHENTICATED, message="Not authenticated"
-            ).model_dump(),
+            detail=AuthErrorResponse(code=AuthErrorCode.NOT_AUTHENTICATED, message="Not authenticated").model_dump(),
         )
 
     payload = decode_token(access_token)
     if isinstance(payload, TokenError):
         raise HTTPException(
             status_code=401,
-            detail=AuthErrorResponse(
-                code=token_error_to_code(payload), message=f"Token error: {payload.value}"
-            ).model_dump(),
+            detail=AuthErrorResponse(code=token_error_to_code(payload), message=f"Token error: {payload.value}").model_dump(),
         )
 
     provider = _get_local_provider()
@@ -106,9 +104,7 @@ async def get_current_user_from_request(request: Request):
     if user is None:
         raise HTTPException(
             status_code=401,
-            detail=AuthErrorResponse(
-                code=AuthErrorCode.USER_NOT_FOUND, message="User not found"
-            ).model_dump(),
+            detail=AuthErrorResponse(code=AuthErrorCode.USER_NOT_FOUND, message="User not found").model_dump(),
         )
 
     return user

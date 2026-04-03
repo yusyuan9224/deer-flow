@@ -5,6 +5,7 @@ This module provides:
 - Provider Factory pattern for extensible auth methods
 - UserRepository interface for different storage backends (SQLite, PostgreSQL)
 """
+
 from app.gateway.auth.config import AuthConfig, get_auth_config, set_auth_config
 from app.gateway.auth.errors import AuthErrorCode, AuthErrorResponse, TokenError
 from app.gateway.auth.jwt import TokenPayload, create_access_token, decode_token

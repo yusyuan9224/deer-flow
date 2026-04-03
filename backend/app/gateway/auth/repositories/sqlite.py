@@ -1,4 +1,5 @@
 """SQLite implementation of UserRepository."""
+
 import asyncio
 import sqlite3
 from contextlib import contextmanager

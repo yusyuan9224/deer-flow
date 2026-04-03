@@ -1,4 +1,5 @@
 """User Pydantic models for authentication."""
+
 from datetime import UTC, datetime
 from typing import Literal
 from uuid import UUID, uuid4

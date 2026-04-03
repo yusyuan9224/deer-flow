@@ -1,4 +1,5 @@
 """PostgreSQL implementation of UserRepository."""
+
 import asyncio
 import atexit
 import logging

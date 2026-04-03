@@ -268,6 +268,7 @@ async def create_thread(body: ThreadCreateRequest, request: Request) -> ThreadRe
 
     # Get optional user for multi-tenant isolation
     from app.gateway.deps import get_optional_user_from_request
+
     user = await get_optional_user_from_request(request)
 
     # Build thread metadata with user_id for isolation
@@ -357,6 +358,7 @@ async def search_threads(body: ThreadSearchRequest, request: Request) -> list[Th
 
     # Get optional user for multi-tenant isolation
     from app.gateway.deps import get_optional_user_from_request
+
     user = await get_optional_user_from_request(request)
     user_id = str(user.id) if user else None
 

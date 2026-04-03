@@ -55,6 +55,7 @@ def test_create_and_decode_token():
     user_id = str(uuid4())
     # Set a valid JWT secret for this test
     import os
+
     os.environ["AUTH_JWT_SECRET"] = "test-secret-key-for-jwt-testing-minimum-32-chars"
     token = create_access_token(user_id)
     assert isinstance(token, str)

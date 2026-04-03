@@ -33,7 +33,7 @@ def should_check_csrf(request: Request) -> bool:
     """
     if request.method not in ("POST", "PUT", "DELETE", "PATCH"):
         return False
-    
+
     path = request.url.path.rstrip("/")
     # Exempt /api/v1/auth/me endpoint
     if path == "/api/v1/auth/me":
@@ -41,11 +41,13 @@ def should_check_csrf(request: Request) -> bool:
     return True
 
 
-_AUTH_EXEMPT_PATHS: frozenset[str] = frozenset({
-    "/api/v1/auth/login/local",
-    "/api/v1/auth/logout",
-    "/api/v1/auth/register",
-})
+_AUTH_EXEMPT_PATHS: frozenset[str] = frozenset(
+    {
+        "/api/v1/auth/login/local",
+        "/api/v1/auth/logout",
+        "/api/v1/auth/register",
+    }
+)
 
 
 def is_auth_endpoint(request: Request) -> bool:

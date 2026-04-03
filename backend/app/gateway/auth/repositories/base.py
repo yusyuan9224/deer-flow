@@ -1,4 +1,5 @@
 """User repository interface for abstracting database operations."""
+
 from abc import ABC, abstractmethod
 
 from app.gateway.auth.models import User
