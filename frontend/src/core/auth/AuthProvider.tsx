@@ -1,17 +1,19 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  type ReactNode,
+} from "react";
 
-/**
- * User information returned by FastAPI /api/auth/me
- * Matches RFC-001 specification - only non-sensitive display data
- */
-export interface User {
-  id: string;
-  email: string;
-  system_role: string;
-}
+import { type User } from "./types";
+
+// Re-export for consumers
+export type { User };
 
 /**
  * Authentication context provided to consuming components
@@ -33,7 +35,7 @@ interface AuthProviderProps {
 
 /**
  * AuthProvider - Unified authentication context for the application
- * 
+ *
  * Per RFC-001:
  * - Only holds display information (user), never JWT or tokens
  * - initialUser comes from server-side guard, avoiding client flicker
@@ -164,7 +166,9 @@ export function useRequireAuth(): AuthContextType {
   useEffect(() => {
     // Only redirect if we're sure user is not authenticated (not just loading)
     if (!auth.isLoading && !auth.isAuthenticated) {
-      router.push(`/login?next=${encodeURIComponent(pathname || "/workspace")}`);
+      router.push(
+        `/login?next=${encodeURIComponent(pathname || "/workspace")}`,
+      );
     }
   }, [auth.isAuthenticated, auth.isLoading, router, pathname]);
 

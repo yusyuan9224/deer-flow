@@ -156,6 +156,7 @@ export interface Translations {
     reportIssue: string;
     contactUs: string;
     about: string;
+    logout: string;
   };
 
   // Conversation

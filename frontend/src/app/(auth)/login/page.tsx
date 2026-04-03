@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useAuth } from "@/core/auth/AuthProvider";
 import { fetchWithAuth } from "@/core/api/fetcher";
+import { useAuth } from "@/core/auth/AuthProvider";
+import { parseAuthError } from "@/core/auth/types";
 
 /**
  * Validate next parameter
@@ -16,22 +17,26 @@ function validateNextParam(next: string | null): string | null {
   if (!next) {
     return null;
   }
-  
+
   // Need start with / (relative path)
   if (!next.startsWith("/")) {
     return null;
   }
-  
+
   // Disallow protocol-relative URLs
-  if (next.startsWith("//") || next.startsWith("http://") || next.startsWith("https://")) {
+  if (
+    next.startsWith("//") ||
+    next.startsWith("http://") ||
+    next.startsWith("https://")
+  ) {
     return null;
   }
-  
+
   // Disallow URLs with different protocols (e.g., javascript:, data:, etc)
   if (next.includes(":") && !next.startsWith("/")) {
     return null;
   }
-  
+
   // Valid relative path
   return next;
 }
@@ -51,11 +56,12 @@ export default function LoginPage() {
   const nextParam = searchParams.get("next");
   const redirectPath = validateNextParam(nextParam) || "/workspace";
 
-  // Redirect if already authenticated
-  if (isAuthenticated) {
-    router.push(redirectPath);
-    return;
-  }
+  // Redirect if already authenticated (client-side, post-login)
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push(redirectPath);
+    }
+  }, [isAuthenticated, redirectPath, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,7 +69,9 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const endpoint = isLogin ? "/api/v1/auth/login/local" : "/api/v1/auth/register";
+      const endpoint = isLogin
+        ? "/api/v1/auth/login/local"
+        : "/api/v1/auth/register";
       const body = isLogin
         ? `username=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`
         : JSON.stringify({ email, password });
@@ -79,15 +87,17 @@ export default function LoginPage() {
         credentials: "include", // Important: include HttpOnly cookie
       });
 
-      const data = await res.json();
-
       if (!res.ok) {
-        setError(data.detail || "Authentication failed");
+        const data = await res.json();
+        const authError = parseAuthError(data);
+        setError(authError.message);
         return;
       }
 
+      const data = await res.json();
+
       if (isLogin) {
-        // Login successful,        // Redirect to next or workspace
+        // Login successful — redirect to next or workspace
         router.push(redirectPath);
       } else {
         // Registration successful, switch to login mode
@@ -104,10 +114,10 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a]">
-      <div className="w-full max-w-md space-y-6 rounded-lg border border-border/20 bg-black/50 p-8 backdrop-blur-sm">
+      <div className="border-border/20 w-full max-w-md space-y-6 rounded-lg border bg-black/50 p-8 backdrop-blur-sm">
         <div className="text-center">
           <h1 className="font-serif text-3xl">DeerFlow</h1>
-          <p className="mt-2 text-muted-foreground">
+          <p className="text-muted-foreground mt-2">
             {isLogin ? "Sign in to your account" : "Create a new account"}
           </p>
         </div>
@@ -144,12 +154,14 @@ export default function LoginPage() {
             />
           </div>
 
-          {error && (
-            <p className="text-sm text-red-500">{error}</p>
-          )}
+          {error && <p className="text-sm text-red-500">{error}</p>}
 
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Please wait..." : isLogin ? "Sign In" : "Create Account"}
+            {loading
+              ? "Please wait..."
+              : isLogin
+                ? "Sign In"
+                : "Create Account"}
           </Button>
         </form>
 
@@ -168,7 +180,7 @@ export default function LoginPage() {
           </button>
         </div>
 
-        <div className="text-center text-xs text-muted-foreground">
+        <div className="text-muted-foreground text-center text-xs">
           <a href="/" className="hover:underline">
             ← Back to home
           </a>

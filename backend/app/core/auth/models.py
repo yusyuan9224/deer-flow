@@ -51,4 +51,4 @@ class UserResponse(BaseModel):
 
     id: str
     email: str
-    system_role: str
+    system_role: Literal["admin", "user"]

@@ -81,19 +81,35 @@ async def get_current_user_from_request(request: Request):
     Raises HTTPException 401 if not authenticated.
     """
     from app.core.auth import decode_token
+    from app.core.auth.errors import AuthErrorCode, AuthErrorResponse, TokenError, token_error_to_code
 
     access_token = request.cookies.get("access_token")
     if not access_token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+        raise HTTPException(
+            status_code=401,
+            detail=AuthErrorResponse(
+                code=AuthErrorCode.NOT_AUTHENTICATED, message="Not authenticated"
+            ).model_dump(),
+        )
 
     payload = decode_token(access_token)
-    if payload is None:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    if isinstance(payload, TokenError):
+        raise HTTPException(
+            status_code=401,
+            detail=AuthErrorResponse(
+                code=token_error_to_code(payload), message=f"Token error: {payload.value}"
+            ).model_dump(),
+        )
 
     provider = _get_local_provider()
     user = await provider.get_user(payload.sub)
     if user is None:
-        raise HTTPException(status_code=401, detail="User not found")
+        raise HTTPException(
+            status_code=401,
+            detail=AuthErrorResponse(
+                code=AuthErrorCode.USER_NOT_FOUND, message="User not found"
+            ).model_dump(),
+        )
 
     return user
 

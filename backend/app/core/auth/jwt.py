@@ -5,6 +5,7 @@ import jwt
 from pydantic import BaseModel
 
 from app.core.auth.config import get_auth_config
+from app.core.auth.errors import TokenError
 
 
 class TokenPayload(BaseModel):
@@ -33,18 +34,19 @@ def create_access_token(user_id: str, expires_delta: timedelta | None = None) ->
     return jwt.encode(payload, config.jwt_secret, algorithm="HS256")
 
 
-def decode_token(token: str) -> TokenPayload | None:
+def decode_token(token: str) -> TokenPayload | TokenError:
     """Decode and validate a JWT token.
 
-    Args:
-        token: Encoded JWT string
-
     Returns:
-        TokenPayload if valid, None if expired/invalid
+        TokenPayload if valid, or a specific TokenError variant.
     """
     config = get_auth_config()
     try:
         payload = jwt.decode(token, config.jwt_secret, algorithms=["HS256"])
         return TokenPayload(**payload)
-    except (jwt.ExpiredSignatureError, jwt.PyJWTError):
-        return None
+    except jwt.ExpiredSignatureError:
+        return TokenError.EXPIRED
+    except jwt.InvalidSignatureError:
+        return TokenError.INVALID_SIGNATURE
+    except jwt.PyJWTError:
+        return TokenError.MALFORMED

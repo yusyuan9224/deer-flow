@@ -1,16 +1,9 @@
-"""Unified fetch wrapper with 401 handling.
-
-Per RFC-001:
-- All 401s trigger logout and redirect to login page
-- Preserves next parameter for redirect
-"""
-
 /**
  * Fetch with credentials. Automatically redirects to login on 401.
  */
 export async function fetchWithAuth(
   input: RequestInfo | string,
-  init?: RequestInit
+  init?: RequestInit,
 ): Promise<Response> {
   const url = typeof input === "string" ? input : input.url;
   const res = await fetch(url, {
@@ -34,7 +27,7 @@ export async function fetchWithAuth(
  */
 export async function getWithAuth<T>(
   url: string,
-  init?: RequestInit
+  init?: RequestInit,
 ): Promise<T> {
   const res = await fetchWithAuth(url, init);
   if (!res.ok) {
@@ -49,7 +42,7 @@ export async function getWithAuth<T>(
 export async function postWithAuth<T>(
   url: string,
   data?: unknown,
-  init?: RequestInit
+  init?: RequestInit,
 ): Promise<T> {
   const res = await fetchWithAuth(url, {
     ...init,

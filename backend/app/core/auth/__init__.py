@@ -6,6 +6,7 @@ This module provides:
 - UserRepository interface for different storage backends (SQLite, PostgreSQL)
 """
 from app.core.auth.config import AuthConfig, get_auth_config, set_auth_config
+from app.core.auth.errors import AuthErrorCode, AuthErrorResponse, TokenError
 from app.core.auth.jwt import TokenPayload, create_access_token, decode_token
 from app.core.auth.local_provider import LocalAuthProvider
 from app.core.auth.models import User, UserCreate, UserInDB, UserResponse
@@ -18,6 +19,10 @@ __all__ = [
     "AuthConfig",
     "get_auth_config",
     "set_auth_config",
+    # Errors
+    "AuthErrorCode",
+    "AuthErrorResponse",
+    "TokenError",
     # JWT
     "TokenPayload",
     "create_access_token",

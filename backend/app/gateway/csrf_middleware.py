@@ -7,8 +7,9 @@ State-changing operations require CSRF protection.
 import secrets
 from typing import Callable
 
-from fastapi import HTTPException, Request, Response
+from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
 from starlette.types import ASGIApp
 
 # Cookie name for CSRF token
@@ -40,22 +41,19 @@ def should_check_csrf(request: Request) -> bool:
     return True
 
 
+_AUTH_EXEMPT_PATHS: frozenset[str] = frozenset({
+    "/api/v1/auth/login/local",
+    "/api/v1/auth/logout",
+    "/api/v1/auth/register",
+})
+
+
 def is_auth_endpoint(request: Request) -> bool:
     """Check if the request is to an auth endpoint.
 
-    Auth endpoints have special handling:
-    - /api/v1/auth/login: Sets up session + CSRF token
-    - /api/v1/auth/logout: Clears session
-    - /api/v1/auth/register: Creates new user
-
-    These don't need CSRF validation on first call (no token).
+    Auth endpoints don't need CSRF validation on first call (no token).
     """
-    path = request.url.path
-    return path in (
-        "/api/v1/auth/login",
-        "/api/v1/auth/logout",
-        "/api/v1/auth/register",
-    )
+    return request.url.path.rstrip("/") in _AUTH_EXEMPT_PATHS
 
 
 class CSRFMiddleware(BaseHTTPMiddleware):
@@ -71,15 +69,15 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             header_token = request.headers.get(CSRF_HEADER_NAME)
 
             if not cookie_token or not header_token:
-                raise HTTPException(
+                return JSONResponse(
                     status_code=403,
-                    detail="CSRF token missing. Include X-CSRF-Token header.",
+                    content={"detail": "CSRF token missing. Include X-CSRF-Token header."},
                 )
 
             if not secrets.compare_digest(cookie_token, header_token):
-                raise HTTPException(
+                return JSONResponse(
                     status_code=403,
-                    detail="CSRF token mismatch.",
+                    content={"detail": "CSRF token mismatch."},
                 )
 
         # Process request
@@ -93,7 +91,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             response.set_cookie(
                 key=CSRF_COOKIE_NAME,
                 value=csrf_token,
-                httponly=True,
+                httponly=False,  # Must be JS-readable for Double Submit Cookie pattern
                 samesite="strict",
             )
 

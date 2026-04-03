@@ -8,6 +8,8 @@ from app.core.auth import (
     create_access_token,
     decode_token,
 )
+from app.core.auth.config import get_auth_config
+from app.core.auth.errors import AuthErrorCode, AuthErrorResponse, TokenError, token_error_to_code
 from app.core.auth.local_provider import LocalAuthProvider
 from app.core.auth.models import User
 from app.core.auth.providers import ProviderFactory
@@ -24,11 +26,9 @@ ProviderFactory.register("local", lambda: _local_provider)
 # ── Request/Response Models ──────────────────────────────────────────────
 
 
-class TokenResponse(BaseModel):
-    """Response model for token endpoint."""
+class LoginResponse(BaseModel):
+    """Response model for login — token only lives in HttpOnly cookie."""
 
-    access_token: str
-    token_type: str = "bearer"
     expires_in: int  # seconds
 
 
@@ -56,21 +56,28 @@ async def get_current_user(access_token: str | None = Cookie(None)) -> User:
     if not access_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
+            detail=AuthErrorResponse(
+                code=AuthErrorCode.NOT_AUTHENTICATED, message="Not authenticated"
+            ).model_dump(),
         )
 
     payload = decode_token(access_token)
-    if payload is None:
+    if isinstance(payload, TokenError):
+        code = token_error_to_code(payload)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
+            detail=AuthErrorResponse(
+                code=code, message=f"Token error: {payload.value}"
+            ).model_dump(),
         )
 
     user = await _local_provider.get_user(payload.sub)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
+            detail=AuthErrorResponse(
+                code=AuthErrorCode.USER_NOT_FOUND, message="User not found"
+            ).model_dump(),
         )
 
     return user
@@ -90,7 +97,7 @@ async def get_optional_user(access_token: str | None = Cookie(None)) -> User | N
 # ── Endpoints ─────────────────────────────────────────────────────────────
 
 
-@router.post("/login/local", response_model=TokenResponse)
+@router.post("/login/local", response_model=LoginResponse)
 async def login_local(
     response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
@@ -98,7 +105,7 @@ async def login_local(
     """Local email/password login.
 
     Authenticates user with username (email) and password,
-    returns JWT token in response body and HttpOnly cookie.
+    sets JWT as HttpOnly cookie only (not in response body per RFC-001).
     """
     user = await _local_provider.authenticate(
         {"email": form_data.username, "password": form_data.password}
@@ -107,21 +114,24 @@ async def login_local(
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail=AuthErrorResponse(
+                code=AuthErrorCode.INVALID_CREDENTIALS, message="Incorrect email or password"
+            ).model_dump(),
         )
 
+    config = get_auth_config()
     token = create_access_token(str(user.id))
 
     response.set_cookie(
         key="access_token",
         value=token,
         httponly=True,
-        secure=True,
+        secure=config.cookie_secure,
         samesite="lax",
-        max_age=7 * 24 * 3600,
+        max_age=config.token_expiry_days * 24 * 3600,
     )
 
-    return TokenResponse(access_token=token, expires_in=7 * 24 * 3600)
+    return LoginResponse(expires_in=config.token_expiry_days * 24 * 3600)
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -132,17 +142,19 @@ async def register(body: RegisterRequest):
     if existing is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered",
+            detail=AuthErrorResponse(
+                code=AuthErrorCode.EMAIL_ALREADY_EXISTS, message="Email already registered"
+            ).model_dump(),
         )
 
-    # Insert is atomic at the DB layer; IntegrityError handles the race
     try:
         user = await _local_provider.create_user(email=body.email, password=body.password)
-    except ValueError as e:
-        # Raised by repo when UNIQUE constraint is violated (race between pre-check and insert)
+    except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+            detail=AuthErrorResponse(
+                code=AuthErrorCode.EMAIL_ALREADY_EXISTS, message="Email already registered"
+            ).model_dump(),
         )
 
     return UserResponse(id=str(user.id), email=user.email, system_role=user.system_role)

@@ -1,8 +1,10 @@
 import logging
+import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.gateway.config import get_gateway_config
 from app.gateway.csrf_middleware import CSRFMiddleware
@@ -166,7 +168,31 @@ This gateway provides custom endpoints for models, MCP configuration, skills, an
         ],
     )
 
-    # CORS is handled by nginx - no need for FastAPI middleware
+    # CSRF: Double Submit Cookie pattern for state-changing requests
+    app.add_middleware(CSRFMiddleware)
+
+    # CORS: when GATEWAY_CORS_ORIGINS is set (dev without nginx), add CORS middleware
+    cors_origins_env = os.environ.get("GATEWAY_CORS_ORIGINS", "")
+    if cors_origins_env:
+        cors_origins = [o.strip() for o in cors_origins_env.split(",") if o.strip()]
+        # Validate: wildcard origin with credentials is a security misconfiguration
+        for origin in cors_origins:
+            if origin == "*":
+                logger.error(
+                    "GATEWAY_CORS_ORIGINS contains wildcard '*' with allow_credentials=True. "
+                    "This is a security misconfiguration — browsers will reject the response. "
+                    "Use explicit scheme://host:port origins instead."
+                )
+                cors_origins = [o for o in cors_origins if o != "*"]
+                break
+        if cors_origins:
+            app.add_middleware(
+                CORSMiddleware,
+                allow_origins=cors_origins,
+                allow_credentials=True,
+                allow_methods=["*"],
+                allow_headers=["*"],
+            )
 
     # Include routers
     # Models API is mounted at /api/models

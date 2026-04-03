@@ -120,13 +120,14 @@ async def _authenticate(request: Request) -> AuthContext:
     Returns AuthContext with user=None for anonymous requests.
     """
     from app.core.auth import decode_token
+    from app.core.auth.errors import TokenError
 
     access_token = request.cookies.get("access_token")
     if not access_token:
         return AuthContext(user=None, permissions=[])
 
     payload = decode_token(access_token)
-    if payload is None:
+    if isinstance(payload, TokenError):
         return AuthContext(user=None, permissions=[])
 
     # Use cached provider singleton to avoid repeated instantiation
