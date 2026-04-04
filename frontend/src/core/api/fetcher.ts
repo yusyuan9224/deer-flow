@@ -49,6 +49,7 @@ export async function postWithAuth<T>(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...getCsrfHeaders(),
       ...init?.headers,
     },
     body: JSON.stringify(data),

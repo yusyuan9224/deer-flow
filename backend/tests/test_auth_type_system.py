@@ -237,10 +237,11 @@ def test_get_current_user_no_cookie_returns_not_authenticated():
 
     from fastapi import HTTPException
 
-    from app.gateway.routers.auth import get_current_user
+    from app.gateway.deps import get_current_user_from_request
 
+    mock_request = type("MockRequest", (), {"cookies": {}})()
     with pytest.raises(HTTPException) as exc_info:
-        asyncio.run(get_current_user(access_token=None))
+        asyncio.run(get_current_user_from_request(mock_request))
     assert exc_info.value.status_code == 401
     detail = exc_info.value.detail
     assert detail["code"] == "not_authenticated"
@@ -252,14 +253,15 @@ def test_get_current_user_expired_token_returns_token_expired():
 
     from fastapi import HTTPException
 
-    from app.gateway.routers.auth import get_current_user
+    from app.gateway.deps import get_current_user_from_request
 
     _setup_config()
     expired = {"sub": "u1", "exp": datetime.now(UTC) - timedelta(hours=1), "iat": datetime.now(UTC)}
     token = pyjwt.encode(expired, _TEST_SECRET, algorithm="HS256")
 
+    mock_request = type("MockRequest", (), {"cookies": {"access_token": token}})()
     with pytest.raises(HTTPException) as exc_info:
-        asyncio.run(get_current_user(access_token=token))
+        asyncio.run(get_current_user_from_request(mock_request))
     assert exc_info.value.status_code == 401
     detail = exc_info.value.detail
     assert detail["code"] == "token_expired"
@@ -271,14 +273,15 @@ def test_get_current_user_invalid_token_returns_token_invalid():
 
     from fastapi import HTTPException
 
-    from app.gateway.routers.auth import get_current_user
+    from app.gateway.deps import get_current_user_from_request
 
     _setup_config()
     payload = {"sub": "u1", "exp": datetime.now(UTC) + timedelta(hours=1), "iat": datetime.now(UTC)}
     token = pyjwt.encode(payload, "wrong-secret", algorithm="HS256")
 
+    mock_request = type("MockRequest", (), {"cookies": {"access_token": token}})()
     with pytest.raises(HTTPException) as exc_info:
-        asyncio.run(get_current_user(access_token=token))
+        asyncio.run(get_current_user_from_request(mock_request))
     assert exc_info.value.status_code == 401
     detail = exc_info.value.detail
     assert detail["code"] == "token_invalid"
@@ -290,11 +293,12 @@ def test_get_current_user_malformed_token_returns_token_invalid():
 
     from fastapi import HTTPException
 
-    from app.gateway.routers.auth import get_current_user
+    from app.gateway.deps import get_current_user_from_request
 
     _setup_config()
+    mock_request = type("MockRequest", (), {"cookies": {"access_token": "not-a-jwt"}})()
     with pytest.raises(HTTPException) as exc_info:
-        asyncio.run(get_current_user(access_token="not-a-jwt"))
+        asyncio.run(get_current_user_from_request(mock_request))
     assert exc_info.value.status_code == 401
     detail = exc_info.value.detail
     assert detail["code"] == "token_invalid"

@@ -108,49 +108,6 @@ def close_pool() -> None:
         _pool = None
 
 
-def _init_users_table(conn: PgConnection) -> None:
-    """Initialize the users table if it doesn't exist."""
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            CREATE TABLE IF NOT EXISTS users (
-                id UUID PRIMARY KEY,
-                email VARCHAR(255) UNIQUE NOT NULL,
-                password_hash VARCHAR(255),
-                system_role VARCHAR(50) NOT NULL DEFAULT 'user',
-                created_at TIMESTAMP NOT NULL,
-                oauth_provider VARCHAR(50),
-                oauth_id VARCHAR(255)
-            )
-        """
-        )
-        # Add unique constraint for OAuth identity to prevent duplicate social logins
-        cur.execute(
-            """
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_users_oauth_identity
-            ON users(oauth_provider, oauth_id)
-            WHERE oauth_provider IS NOT NULL AND oauth_id IS NOT NULL
-        """
-        )
-        conn.commit()
-
-
-@contextmanager
-def _get_conn() -> Generator[PgConnection, None, None]:
-    """Context manager for PostgreSQL connection."""
-    pool = _get_pool()
-    conn = pool.getconn()
-    try:
-        _init_users_table(conn)
-        yield conn
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        pool.putconn(conn)
-
-
 class PostgresUserRepository(UserRepository):
     """PostgreSQL implementation of UserRepository."""
 

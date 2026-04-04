@@ -1,27 +1,18 @@
 """Authentication endpoints."""
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 from app.gateway.auth import (
     UserResponse,
     create_access_token,
-    decode_token,
 )
 from app.gateway.auth.config import get_auth_config
-from app.gateway.auth.errors import AuthErrorCode, AuthErrorResponse, TokenError, token_error_to_code
-from app.gateway.auth.local_provider import LocalAuthProvider
-from app.gateway.auth.models import User
-from app.gateway.auth.providers import ProviderFactory
-from app.gateway.auth.repositories.sqlite import SQLiteUserRepository
+from app.gateway.auth.errors import AuthErrorCode, AuthErrorResponse
+from app.gateway.deps import _get_local_provider, get_current_user_from_request
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
-
-# Initialize LocalAuthProvider with SQLite repository
-_repository = SQLiteUserRepository()
-_local_provider = LocalAuthProvider(repository=_repository)
-ProviderFactory.register("local", lambda: _local_provider)
 
 
 # ── Request/Response Models ──────────────────────────────────────────────
@@ -37,7 +28,7 @@ class RegisterRequest(BaseModel):
     """Request model for user registration."""
 
     email: EmailStr
-    password: str
+    password: str = Field(..., min_length=8)
 
 
 class MessageResponse(BaseModel):
@@ -46,47 +37,12 @@ class MessageResponse(BaseModel):
     message: str
 
 
-# ── Dependencies ──────────────────────────────────────────────────────────
+# ── Helpers ───────────────────────────────────────────────────────────────
 
 
-async def get_current_user(access_token: str | None = Cookie(None)) -> User:
-    """FastAPI dependency to get the current authenticated user.
-
-    Raises HTTPException 401 if not authenticated.
-    """
-    if not access_token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=AuthErrorResponse(code=AuthErrorCode.NOT_AUTHENTICATED, message="Not authenticated").model_dump(),
-        )
-
-    payload = decode_token(access_token)
-    if isinstance(payload, TokenError):
-        code = token_error_to_code(payload)
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=AuthErrorResponse(code=code, message=f"Token error: {payload.value}").model_dump(),
-        )
-
-    user = await _local_provider.get_user(payload.sub)
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=AuthErrorResponse(code=AuthErrorCode.USER_NOT_FOUND, message="User not found").model_dump(),
-        )
-
-    return user
-
-
-async def get_optional_user(access_token: str | None = Cookie(None)) -> User | None:
-    """Optional user dependency - returns None if not authenticated."""
-    if not access_token:
-        return None
-
-    try:
-        return await get_current_user(access_token)
-    except HTTPException:
-        return None
+def _is_secure_request(request: Request) -> bool:
+    """Detect whether the original client request was made over HTTPS."""
+    return request.headers.get("x-forwarded-proto", request.url.scheme) == "https"
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────
@@ -94,6 +50,7 @@ async def get_optional_user(access_token: str | None = Cookie(None)) -> User | N
 
 @router.post("/login/local", response_model=LoginResponse)
 async def login_local(
+    request: Request,
     response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
 ):
@@ -102,7 +59,7 @@ async def login_local(
     Authenticates user with username (email) and password,
     sets JWT as HttpOnly cookie only (not in response body per RFC-001).
     """
-    user = await _local_provider.authenticate({"email": form_data.username, "password": form_data.password})
+    user = await _get_local_provider().authenticate({"email": form_data.username, "password": form_data.password})
 
     if user is None:
         raise HTTPException(
@@ -117,7 +74,7 @@ async def login_local(
         key="access_token",
         value=token,
         httponly=True,
-        secure=True,
+        secure=_is_secure_request(request),
         samesite="lax",
         max_age=config.token_expiry_days * 24 * 3600,
     )
@@ -129,7 +86,7 @@ async def login_local(
 async def register(body: RegisterRequest):
     """Register a new local user account."""
     # Fast path: check if email exists first (avoids expensive hash computation on conflict)
-    existing = await _local_provider.get_user_by_email(body.email)
+    existing = await _get_local_provider().get_user_by_email(body.email)
     if existing is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -137,7 +94,7 @@ async def register(body: RegisterRequest):
         )
 
     try:
-        user = await _local_provider.create_user(email=body.email, password=body.password)
+        user = await _get_local_provider().create_user(email=body.email, password=body.password)
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -148,15 +105,16 @@ async def register(body: RegisterRequest):
 
 
 @router.post("/logout", response_model=MessageResponse)
-async def logout(response: Response):
+async def logout(request: Request, response: Response):
     """Logout current user by clearing the cookie."""
-    response.delete_cookie(key="access_token")
+    response.delete_cookie(key="access_token", secure=_is_secure_request(request), samesite="lax")
     return MessageResponse(message="Successfully logged out")
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_me(user: User = Depends(get_current_user)):
+async def get_me(request: Request):
     """Get current authenticated user info."""
+    user = await get_current_user_from_request(request)
     return UserResponse(id=str(user.id), email=user.email, system_role=user.system_role)
 
 
