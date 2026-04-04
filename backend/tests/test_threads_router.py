@@ -54,15 +54,16 @@ def test_delete_thread_route_cleans_thread_directory(tmp_path):
 
     from app.gateway.authz import AuthContext
 
+    tid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
     paths = Paths(tmp_path)
-    thread_dir = paths.thread_dir("thread-route")
-    paths.sandbox_work_dir("thread-route").mkdir(parents=True, exist_ok=True)
-    (paths.sandbox_work_dir("thread-route") / "notes.txt").write_text("hello", encoding="utf-8")
+    thread_dir = paths.thread_dir(tid)
+    paths.sandbox_work_dir(tid).mkdir(parents=True, exist_ok=True)
+    (paths.sandbox_work_dir(tid) / "notes.txt").write_text("hello", encoding="utf-8")
 
     # Mock store item with .value attribute
     mock_store = MagicMock()
     mock_record = {
-        "thread_id": "thread-route",
+        "thread_id": tid,
         "metadata": {"user_id": "test-user-123"},
     }
     mock_store_item = MagicMock()
@@ -81,10 +82,10 @@ def test_delete_thread_route_cleans_thread_directory(tmp_path):
             with patch("app.gateway.routers.threads.get_checkpointer", return_value=MagicMock()):
                 with patch("app.gateway.authz._authenticate", return_value=mock_auth):
                     with TestClient(app) as client:
-                        response = client.delete("/api/threads/thread-route")
+                        response = client.delete(f"/api/threads/{tid}")
 
     assert response.status_code == 200
-    assert response.json() == {"success": True, "message": "Deleted local thread data for thread-route"}
+    assert response.json() == {"success": True, "message": f"Deleted local thread data for {tid}"}
     assert not thread_dir.exists()
 
 
@@ -102,33 +103,20 @@ def test_delete_thread_route_rejects_invalid_thread_id(tmp_path):
 
 
 def test_delete_thread_route_returns_422_for_route_safe_invalid_id(tmp_path):
-    """DELETE /{thread_id} with invalid id — auth is checked before path validation."""
-    from unittest.mock import AsyncMock, MagicMock
-
-    from app.gateway.authz import AuthContext
-
+    """DELETE /{thread_id} with non-UUID id — FastAPI rejects at path validation."""
     paths = Paths(tmp_path)
 
     app = FastAPI()
     app.include_router(threads.router)
 
-    mock_user = MagicMock()
-    mock_user.id = "test-user-123"
-    mock_auth = AuthContext(user=mock_user, permissions=["threads:read", "threads:write", "threads:delete"])
-
-    # Mock store with async aget that returns None (thread not found)
-    mock_store = MagicMock()
-    mock_store.aget = AsyncMock(return_value=None)
-
     with patch("app.gateway.routers.threads.get_paths", return_value=paths):
-        with patch("app.gateway.routers.threads.get_store", return_value=mock_store):
-            with patch("app.gateway.routers.threads.get_checkpointer", return_value=MagicMock()):
-                with patch("app.gateway.authz._authenticate", return_value=mock_auth):
-                    with TestClient(app) as client:
-                        response = client.delete("/api/threads/thread.with.dot")
+        with TestClient(app) as client:
+            response = client.delete("/api/threads/thread.with.dot")
 
     assert response.status_code == 422
-    assert "Invalid thread_id" in response.json()["detail"]
+    # FastAPI returns a list of validation errors for path parameter mismatch
+    detail = response.json()["detail"]
+    assert any("thread_id" in str(err) for err in detail)
 
 
 def test_delete_thread_data_returns_generic_500_error(tmp_path):

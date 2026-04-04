@@ -13,17 +13,25 @@ matching the LangGraph Platform wire format expected by the
 from __future__ import annotations
 
 import logging
+import re
 import time
 import uuid
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, HTTPException, Path, Request
+from pydantic import BaseModel, Field, field_validator
 
 from app.gateway.authz import require_auth, require_permission
 from app.gateway.deps import get_checkpointer, get_store
 from deerflow.config.paths import Paths, get_paths
 from deerflow.runtime import serialize_channel_values
+
+# ---------------------------------------------------------------------------
+# Thread ID validation (prevents log-injection via control characters)
+# ---------------------------------------------------------------------------
+
+_UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+ThreadId = Annotated[str, Path(description="Thread UUID", pattern=_UUID_RE.pattern)]
 
 # ---------------------------------------------------------------------------
 # Store namespace
@@ -65,6 +73,13 @@ class ThreadCreateRequest(BaseModel):
 
     thread_id: str | None = Field(default=None, description="Optional thread ID (auto-generated if omitted)")
     metadata: dict[str, Any] = Field(default_factory=dict, description="Initial metadata")
+
+    @field_validator("thread_id")
+    @classmethod
+    def _validate_uuid(cls, v: str | None) -> str | None:
+        if v is not None and not _UUID_RE.match(v):
+            raise ValueError("thread_id must be a valid UUID")
+        return v
 
 
 class ThreadSearchRequest(BaseModel):
@@ -218,7 +233,7 @@ def _derive_thread_status(checkpoint_tuple) -> str:
 @router.delete("/{thread_id}", response_model=ThreadDeleteResponse)
 @require_auth
 @require_permission("threads", "delete", owner_check=True)
-async def delete_thread_data(thread_id: str, request: Request) -> ThreadDeleteResponse:
+async def delete_thread_data(thread_id: ThreadId, request: Request) -> ThreadDeleteResponse:
     """Delete local persisted filesystem data for a thread.
 
     Cleans DeerFlow-managed thread directories, removes checkpoint data,
@@ -454,7 +469,7 @@ async def search_threads(body: ThreadSearchRequest, request: Request) -> list[Th
 @router.patch("/{thread_id}", response_model=ThreadResponse)
 @require_auth
 @require_permission("threads", "write", owner_check=True, inject_record=True)
-async def patch_thread(thread_id: str, request: Request, body: ThreadPatchRequest, thread_record: dict = None) -> ThreadResponse:
+async def patch_thread(thread_id: ThreadId, request: Request, body: ThreadPatchRequest, thread_record: dict = None) -> ThreadResponse:
     """Merge metadata into a thread record.
 
     Multi-tenant isolation: only the thread owner can patch their thread.
@@ -492,7 +507,7 @@ async def patch_thread(thread_id: str, request: Request, body: ThreadPatchReques
 @router.get("/{thread_id}", response_model=ThreadResponse)
 @require_auth
 @require_permission("threads", "read", owner_check=True)
-async def get_thread(thread_id: str, request: Request) -> ThreadResponse:
+async def get_thread(thread_id: ThreadId, request: Request) -> ThreadResponse:
     """Get thread info.
 
     Reads metadata from the Store and derives the accurate execution
@@ -549,7 +564,7 @@ async def get_thread(thread_id: str, request: Request) -> ThreadResponse:
 @router.get("/{thread_id}/state", response_model=ThreadStateResponse)
 @require_auth
 @require_permission("threads", "read", owner_check=True)
-async def get_thread_state(thread_id: str, request: Request) -> ThreadStateResponse:
+async def get_thread_state(thread_id: ThreadId, request: Request) -> ThreadStateResponse:
     """Get the latest state snapshot for a thread.
 
     Channel values are serialized to ensure LangChain message objects
@@ -602,7 +617,7 @@ async def get_thread_state(thread_id: str, request: Request) -> ThreadStateRespo
 @router.post("/{thread_id}/state", response_model=ThreadStateResponse)
 @require_auth
 @require_permission("threads", "write", owner_check=True)
-async def update_thread_state(thread_id: str, body: ThreadStateUpdateRequest, request: Request) -> ThreadStateResponse:
+async def update_thread_state(thread_id: ThreadId, body: ThreadStateUpdateRequest, request: Request) -> ThreadStateResponse:
     """Update thread state (e.g. for human-in-the-loop resume or title rename).
 
     Writes a new checkpoint that merges *body.values* into the latest
@@ -689,7 +704,7 @@ async def update_thread_state(thread_id: str, body: ThreadStateUpdateRequest, re
 @router.post("/{thread_id}/history", response_model=list[HistoryEntry])
 @require_auth
 @require_permission("threads", "read", owner_check=True)
-async def get_thread_history(thread_id: str, body: ThreadHistoryRequest, request: Request) -> list[HistoryEntry]:
+async def get_thread_history(thread_id: ThreadId, body: ThreadHistoryRequest, request: Request) -> list[HistoryEntry]:
     """Get checkpoint history for a thread.
 
     Multi-tenant isolation: returns 404 if thread does not belong to user.
